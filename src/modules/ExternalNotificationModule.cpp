@@ -177,10 +177,10 @@ int32_t ExternalNotificationModule::runOnce()
             pixels.setBrightness(brightnessIndex);
             pixels.fill(pixels.Color(red, green, blue), 0, NEOPIXEL_COUNT);
             pixels.show();
-            delay = EXT_NOTIFICATION_FAST_THREAD_MS
+            delay = EXT_NOTIFICATION_FAST_THREAD_MS;
 #endif
 #ifdef UNPHONE
-                        unphone.rgb(red, green, blue);
+            unphone.rgb(red, green, blue);
 #endif
             /*
             if (ascending) { // fade in
