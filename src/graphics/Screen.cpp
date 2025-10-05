@@ -102,7 +102,7 @@ namespace graphics
 #define NUM_EXTRA_FRAMES 3 // text message and debug frame
 // if defined a pixel will blink to show redraws
 // #define SHOW_REDRAWS
-
+#define ASCII_BELL '\x07'
 // A text message frame + debug frame + all the node infos
 FrameCallback *normalFrames;
 static uint32_t targetFramerate = IDLE_FRAMERATE;
@@ -156,6 +156,11 @@ void Screen::showSimpleBanner(const char *message, uint32_t durationMs)
 // Called to trigger a banner with custom message and duration
 void Screen::showOverlayBanner(BannerOverlayOptions banner_overlay_options)
 {
+    // Don't show overlay banner if virtual keyboard is active
+    if (NotificationRenderer::current_notification_type == notificationTypeEnum::text_input) {
+        return;
+    }
+
 #ifdef USE_EINK
     EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST); // Skip full refresh for all overlay menus
 #endif
@@ -180,6 +185,11 @@ void Screen::showOverlayBanner(BannerOverlayOptions banner_overlay_options)
 // Called to trigger a banner with custom message and duration
 void Screen::showNodePicker(const char *message, uint32_t durationMs, std::function<void(uint32_t)> bannerCallback)
 {
+    // Don't show node picker if virtual keyboard is active
+    if (NotificationRenderer::current_notification_type == notificationTypeEnum::text_input) {
+        return;
+    }
+
 #ifdef USE_EINK
     EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST); // Skip full refresh for all overlay menus
 #endif
@@ -203,6 +213,11 @@ void Screen::showNodePicker(const char *message, uint32_t durationMs, std::funct
 void Screen::showNumberPicker(const char *message, uint32_t durationMs, uint8_t digits,
                               std::function<void(uint32_t)> bannerCallback)
 {
+    // Don't show number picker if virtual keyboard is active
+    if (NotificationRenderer::current_notification_type == notificationTypeEnum::text_input) {
+        return;
+    }
+
 #ifdef USE_EINK
     EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST); // Skip full refresh for all overlay menus
 #endif
@@ -448,7 +463,7 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
 #endif
 
             dispdev->displayOn();
-#ifdef HELTEC_TRACKER_V1_X
+#if defined(HELTEC_TRACKER_V1_X) || defined(HELTEC_WIRELESS_TRACKER_V2)
             ui->init();
 #endif
 #ifdef USE_ST7789
@@ -761,7 +776,18 @@ int32_t Screen::runOnce()
     }
 #endif
     if (!NotificationRenderer::isOverlayBannerShowing() && rebootAtMsec != 0) {
+        #ifdef ARCH_NRF52
+        switch (nrf52_GPREGRET) {
+            case 0x00:
+                showSimpleBanner("Rebooting...", 0);
+                break;
+            case 0x57:
+                showSimpleBanner("Bootloader mode\nPower cycle to exit.", 0);
+                break;
+        };
+        #else
         showSimpleBanner("Rebooting...", 0);
+        #endif
     }
 
     // Process incoming commands.
@@ -1427,6 +1453,110 @@ int Screen::handleStatusUpdate(const meshtastic::Status *arg)
     return 0;
 }
 
+// Handles when message is received; will jump to text message frame.
+int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
+{
+    if (showingNormalScreen) {
+        if (packet->from == 0) {
+            // Outgoing message (likely sent from phone)
+            devicestate.has_rx_text_message = false;
+            memset(&devicestate.rx_text_message, 0, sizeof(devicestate.rx_text_message));
+            hiddenFrames.textMessage = true;
+            hasUnreadMessage = false; // Clear unread state when user replies
+
+            setFrames(FOCUS_PRESERVE); // Stay on same frame, silently update frame list
+        } else {
+            // Incoming message
+            devicestate.has_rx_text_message = true; // Needed to include the message frame
+            hasUnreadMessage = true;                // Enables mail icon in the header
+
+            // Always update frame list to include new message, but defer UI updates if virtual keyboard is active
+            if (NotificationRenderer::current_notification_type != notificationTypeEnum::text_input) {
+                setFrames(FOCUS_PRESERVE); // Refresh frame list without switching view
+
+                // Only wake/force display if the configuration allows it
+                if (shouldWakeOnReceivedMessage()) {
+                    setOn(true);    // Wake up the screen first
+                    forceDisplay(); // Forces screen redraw
+                }
+            } else {
+                // Virtual keyboard is active - just mark that frames need regeneration when keyboard closes
+                // The devicestate and hasUnreadMessage are already set above, so message will appear later
+                LOG_INFO("Virtual keyboard active - deferring frame list update for new message");
+            }
+
+            // Show message alert - either as normal banner or as keyboard popup
+            // === Common variables ===
+            const meshtastic_NodeInfoLite *node = nodeDB->getMeshNode(packet->from);
+            const char *longName = (node && node->has_user) ? node->user.long_name : nullptr;
+            const char *msgRaw = reinterpret_cast<const char *>(packet->decoded.payload.bytes);
+
+            // Check for bell character in message to determine alert type
+            bool isAlert = false;
+            for (size_t i = 0; i < packet->decoded.payload.size && i < 100; i++) {
+                if (msgRaw[i] == '\x07') {
+                    isAlert = true;
+                    break;
+                }
+            }
+
+            if (NotificationRenderer::current_notification_type != notificationTypeEnum::text_input) {
+                // === Normal banner mode ===
+                char banner[256];
+                if (isAlert) {
+                    if (longName && longName[0]) {
+                        snprintf(banner, sizeof(banner), "Alert Received from\n%s", longName);
+                    } else {
+                        strcpy(banner, "Alert Received");
+                    }
+                } else {
+                    if (longName && longName[0]) {
+                        snprintf(banner, sizeof(banner), "New Message from\n%s", longName);
+                    } else {
+                        strcpy(banner, "New Message");
+                    }
+                }
+                screen->showSimpleBanner(banner, 3000);
+            } else {
+                // === Virtual keyboard popup mode ===
+                char title[64];
+                if (isAlert) {
+                    if (longName && longName[0]) {
+                        snprintf(title, sizeof(title), "Alert from %s", longName);
+                    } else {
+                        strcpy(title, "Alert Received");
+                    }
+                } else {
+                    if (longName && longName[0]) {
+                        snprintf(title, sizeof(title), "%s", longName);
+                    } else {
+                        strcpy(title, "New Message");
+                    }
+                }
+
+                // Prepare content - clean the message content
+                char content[200];
+                size_t contentLen = 0;
+                for (size_t i = 0; i < packet->decoded.payload.size && i < sizeof(content) - 1; i++) {
+                    if (msgRaw[i] != '\x07' && msgRaw[i] != '\0') { // Skip bell character and null
+                        content[contentLen++] = msgRaw[i];
+                    }
+                }
+                content[contentLen] = '\0';
+
+                // Show popup with title and content on virtual keyboard
+                NotificationRenderer::showKeyboardMessagePopupWithTitle(title, content, 5000);
+
+                // Force display update to show the popup immediately
+                setFastFramerate();
+                forceDisplay();
+            }
+        }
+    }
+
+    return 0;
+}
+
 // Triggered by MeshModules
 int Screen::handleUIFrameEvent(const UIFrameEvent *event)
 {
@@ -1507,6 +1637,27 @@ int Screen::handleInputEvent(const InputEvent *event)
 
         // If no modules are using the input, move between frames
         if (!inputIntercepted) {
+            if (this->ui->getUiState()->currentFrame == framesetInfo.positions.textMessage) {
+                MessageRenderer::handleManualScroll(event->inputEvent);
+            }
+            #ifdef GAT562_MESH_TRACKER_PRO
+            if (event->inputEvent == INPUT_BROKER_USER_PRESS) {
+                if (screen->screenStatus()){
+                    setOn(false);
+                } else {
+                    setOn(true);
+                }
+            } else
+            #endif
+            #ifdef GAT562_MESH_WATCH
+            if (event->inputEvent == INPUT_BROKER_ALT_PRESS) {
+                if (screen->screenStatus()){
+                    setOn(false);
+                } else {
+                    setOn(true);
+                }
+            } else 
+            #endif
             if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
                 showPrevFrame();
             } else if (event->inputEvent == INPUT_BROKER_RIGHT || event->inputEvent == INPUT_BROKER_USER_PRESS) {
@@ -1550,8 +1701,8 @@ int Screen::handleInputEvent(const InputEvent *event)
                 }
             } else if (event->inputEvent == INPUT_BROKER_BACK) {
                 showPrevFrame();
-            } else if (event->inputEvent == INPUT_BROKER_CANCEL) {
-                setOn(false);
+            } else if (event->inputEvent == INPUT_BROKER_SELECT_LONG) {
+                screen->setOn(false);
             }
         }
     }
@@ -1579,6 +1730,213 @@ bool Screen::isOverlayBannerShowing()
 {
     return NotificationRenderer::isOverlayBannerShowing();
 }
+
+#ifdef CJK_ENABLE
+
+void Screen::resetScrolling()
+{
+    textLines.clear();
+    currentLineStart = 0;
+}
+
+// Convert UTF-8 to Unicode codepoint
+uint16_t Screen::utf8ToUnicode(const char *text, int &byteCount)
+{
+    uint8_t byte1 = (uint8_t)text[0];
+
+    if (byte1 < 0x80) {
+        // ASCII character
+        byteCount = 1;
+        return byte1;
+    } else if ((byte1 & 0xE0) == 0xC0) {
+        // 2-byte UTF-8
+        byteCount = 2;
+        return ((byte1 & 0x1F) << 6) | ((uint8_t)text[1] & 0x3F);
+    } else if ((byte1 & 0xF0) == 0xE0) {
+        // 3-byte UTF-8 (most CJK characters)
+        byteCount = 3;
+        return ((byte1 & 0x0F) << 12) | (((uint8_t)text[1] & 0x3F) << 6) | ((uint8_t)text[2] & 0x3F);
+    } else if ((byte1 & 0xF8) == 0xF0) {
+        // 4-byte UTF-8
+        byteCount = 4;
+        return ((byte1 & 0x07) << 18) | (((uint8_t)text[1] & 0x3F) << 12) | (((uint8_t)text[2] & 0x3F) << 6) |
+               ((uint8_t)text[3] & 0x3F);
+    }
+
+    byteCount = 1;
+    return 0; // Invalid UTF-8
+}
+
+// Draw a single CJK character
+void Screen::drawCJKChar(OLEDDisplay *display, int16_t x, int16_t y, uint16_t unicode)
+{
+    const uint8_t *bitmap = getCJKCharBitmap(unicode);
+    if (bitmap == nullptr) {
+        // Character not found, draw fallback
+        display->setFont(FONT_SMALL);
+        display->drawString(x, y, "?");
+        return;
+    }
+    /*
+    // Draw the 12x12 bitmap
+    for (int row = 0; row < CJK_CHAR_HEIGHT; row++) {
+        for (int col = 0; col < CJK_CHAR_WIDTH; col++) {
+            int bytesPerRow = (CJK_CHAR_WIDTH + 7) / 8; // Round up to bytes
+            int byteIndex = row * bytesPerRow + (col / 8);
+            int bitIndex = 7 - (col % 8);
+
+            uint8_t pixelByte = pgm_read_byte(&bitmap[byteIndex]);
+            if (pixelByte & (1 << bitIndex)) {
+                display->setPixel(x + col, y + row);
+            }
+        }
+    }
+    */
+    for (int row = 0; row < CJK_CHAR_HEIGHT; row++) {
+        for (int col = 0; col < CJK_CHAR_WIDTH; col++) {
+            int byteIndex = (row * CJK_CHAR_WIDTH + col) / 8;
+            int bitIndex = 7 - ((row * CJK_CHAR_WIDTH + col) % 8);
+
+            uint8_t pixelByte = pgm_read_byte(&bitmap[byteIndex]);
+            if (pixelByte & (1 << bitIndex)) {
+                display->setPixel(x + col, y + row);
+            }
+        }
+    } /**/
+}
+
+// Check if a string contains CJK characters
+bool Screen::containsCJKCharacters(const char *text)
+{
+    int i = 0;
+    while (text[i] != '\0') {
+        int byteCount;
+        uint16_t unicode = utf8ToUnicode(&text[i], byteCount);
+        if (isCJKChar(unicode)) {
+            return true;
+        }
+        i += byteCount;
+    }
+    return false;
+}
+
+// Draw a string containing CJK characters
+void Screen::drawCJKString(OLEDDisplay *display, int16_t x, int16_t y, const char *text)
+{
+    int currentX = x;
+    int i = 0;
+
+    while (text[i] != '\0') {
+        int byteCount;
+        uint16_t unicode = utf8ToUnicode(&text[i], byteCount);
+
+        if (unicode < 128) {
+            // Draw ASCII character using regular font
+            char asciiChar[2] = {(char)unicode, '\0'};
+            display->setFont(FONT_SMALL);
+            display->drawString(currentX, y, asciiChar);
+            currentX += display->getStringWidth(asciiChar);
+        } else if (isCJKChar(unicode)) {
+            // Draw CJK character
+            drawCJKChar(display, currentX, y, unicode);
+            currentX += CJK_CHAR_WIDTH;
+        } else {
+            // Other Unicode character, use fallback
+            display->setFont(FONT_SMALL);
+            display->drawString(currentX, y, "?");
+            currentX += display->getStringWidth("?");
+        }
+
+        i += byteCount;
+    }
+}
+
+uint16_t Screen::getCJKwidth(OLEDDisplay *display, const char *text)
+{
+    int i = 0;
+    int totalWidth = 0;
+    while (text[i] != '\0') {
+        int byteCount;
+        uint16_t unicode = utf8ToUnicode(&text[i], byteCount);
+        if (isSymbol(unicode)) {
+            char asciiChar[2] = {(char)unicode, '\0'};
+            totalWidth += display->getStringWidth(asciiChar);
+        } else if (isCJKChar(unicode)) {
+            totalWidth += CJK_CHAR_WIDTH;
+        } else {
+            totalWidth += display->getStringWidth("?");
+        }
+        i += byteCount;
+    }
+    return totalWidth;
+}
+
+void Screen::drawCJKStringf(OLEDDisplay *display, int16_t x, int16_t y, char *buffer, String format, ...)
+{
+    va_list myargs;
+    va_start(myargs, format);
+    vsprintf(buffer, format.c_str(), myargs);
+    va_end(myargs);
+    drawCJKString(display, x, y, buffer);
+}
+
+// Draw a string containing CJK characters with automatic line wrapping
+void Screen::drawCJKStringMaxWidth(OLEDDisplay *display, int16_t x, int16_t y, int16_t maxWidth, const char *text)
+{
+    int lineHeight = max(CJK_CHAR_HEIGHT, FONT_HEIGHT_SMALL);
+    int screenHeight = display->getHeight();
+    int maxDisplayLines = (screenHeight - y) / lineHeight;
+
+    // Break text into lines (do this once)
+    if (textLines.empty()) {
+        String currentLine = "";
+        int currentWidth = 0;
+        int i = 0;
+
+        while (text[i] != '\0') {
+            int byteCount;
+            uint16_t unicode = utf8ToUnicode(&text[i], byteCount);
+            int charWidth = isCJKChar(unicode) ? CJK_CHAR_WIDTH : 6;
+            if (currentWidth + charWidth > maxWidth && currentLine.length() > 0) {
+                textLines.push_back(currentLine);
+                currentLine = "";
+                currentWidth = 0;
+            }
+
+            // Add character to current line
+            for (int j = 0; j < byteCount; j++) {
+                currentLine += text[i + j];
+            }
+            currentWidth += charWidth;
+            i += byteCount;
+        }
+
+        if (currentLine.length() > 0) {
+            textLines.push_back(currentLine);
+        }
+    }
+
+    // Auto-scroll if needed
+    if (textLines.size() > maxDisplayLines) {
+        unsigned long currentTime = millis();
+        if (currentTime - lastScrollTime >= 1500) {
+            currentLineStart++;
+            if (currentLineStart + maxDisplayLines > textLines.size()) {
+                currentLineStart = 0;
+            }
+            lastScrollTime = currentTime;
+        }
+    }
+
+    // Draw visible lines
+    int linesToShow = min(maxDisplayLines, (int)textLines.size() - currentLineStart);
+    for (int i = 0; i < linesToShow; i++) {
+        int lineY = y + (i * lineHeight);
+        drawCJKString(display, x, lineY, textLines[currentLineStart + i].c_str());
+    }
+}
+
+#endif // CJK_ENABLE
 
 } // namespace graphics
 

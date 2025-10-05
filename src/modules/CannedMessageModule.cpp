@@ -45,6 +45,9 @@ extern MessageStore messageStore;
 #define INACTIVATE_AFTER_MS 20000
 
 extern ScanI2C::DeviceAddress cardkb_found;
+#ifdef CJK_ENABLE
+extern graphics::Screen *screen;
+#endif
 extern bool graphics::isMuted;
 extern bool osk_found;
 
@@ -196,22 +199,60 @@ int CannedMessageModule::splitConfiguredMessages()
 
     return this->messagesCount;
 }
+
+#ifdef CJK_ENABLE
 void CannedMessageModule::drawHeader(OLEDDisplay *display, int16_t x, int16_t y, char *buffer)
 {
     if (graphics::isHighResolution) {
         if (this->dest == NODENUM_BROADCAST) {
-            display->drawStringf(x, y, buffer, "To: #%s", channels.getName(this->channel));
+            if (screen->containsCJKCharacters(channels.getName(this->channel))) {
+                screen->drawCJKStringf(display, x, y, buffer, "To: Broadcast@%s", channels.getName(this->channel));
+            } else {
+                display->drawStringf(x, y, buffer, "To: Broadcast@%s", channels.getName(this->channel));
+            }
+        } else {
+            if (screen->containsCJKCharacters(getNodeName(this->dest))) {
+                screen->drawCJKStringf(display, x, y, buffer, "To: %s", getNodeName(this->dest));
+            } else {
+                display->drawStringf(x, y, buffer, "To: %s", getNodeName(this->dest));
+            }
+        }
+    } else {
+        if (this->dest == NODENUM_BROADCAST) {
+            if (screen->containsCJKCharacters(channels.getName(this->channel))) {
+                screen->drawCJKStringf(display, x, y, buffer, "To: Broadc@%.5s", channels.getName(this->channel));
+            } else {
+                display->drawStringf(x, y, buffer, "To: Broadc@%.5s", channels.getName(this->channel));
+                ;
+            }
+        } else {
+            if (screen->containsCJKCharacters(getNodeName(this->dest))) {
+                screen->drawCJKStringf(display, x, y, buffer, "To: %s", getNodeName(this->dest));
+            } else {
+                display->drawStringf(x, y, buffer, "To: %s", getNodeName(this->dest));
+            }
+        }
+    }
+}
+
+#else
+void CannedMessageModule::drawHeader(OLEDDisplay *display, int16_t x, int16_t y, char *buffer)
+{
+    if (graphics::isHighResolution) {
+        if (this->dest == NODENUM_BROADCAST) {
+            display->drawStringf(x, y, buffer, "To: Broadcast@%s", channels.getName(this->channel));
         } else {
             display->drawStringf(x, y, buffer, "To: %s", getNodeName(this->dest));
         }
     } else {
         if (this->dest == NODENUM_BROADCAST) {
-            display->drawStringf(x, y, buffer, "To: #%.5s", channels.getName(this->channel));
+            display->drawStringf(x, y, buffer, "To: Broadc@%.5s", channels.getName(this->channel));
         } else {
             display->drawStringf(x, y, buffer, "To: %s", getNodeName(this->dest));
         }
     }
 }
+#endif
 
 void CannedMessageModule::resetSearch()
 {
@@ -318,8 +359,18 @@ bool CannedMessageModule::isCharInputAllowed() const
  */
 int CannedMessageModule::handleInputEvent(const InputEvent *event)
 {
+    // Block ALL input if at message screen
+    if (inMessage){
+        return 0;
+    }
     // Block ALL input if an alert banner is active
     if (screen && screen->isOverlayBannerShowing()) {
+        return 0;
+    }
+
+    // Block ALL input and exit ack_nack screen when got any input
+    if (event->inputEvent != INPUT_BROKER_NONE && this->runState == CANNED_MESSAGE_RUN_STATE_ACK_NACK_RECEIVED ) {
+        this->runState = CANNED_MESSAGE_RUN_STATE_INACTIVE;
         return 0;
     }
 
@@ -373,8 +424,13 @@ int CannedMessageModule::handleInputEvent(const InputEvent *event)
             break;
         }
         // Handle UP/DOWN: activate canned message list!
+        #ifndef GAT562_MESH_TRIAL_TRACKER
+        if (event->inputEvent == INPUT_BROKER_UP || event->inputEvent == INPUT_BROKER_DOWN ||
+            event->inputEvent == INPUT_BROKER_ALT_LONG || event->inputEvent == INPUT_BROKER_USER_PRESS) {
+        #else
         if (event->inputEvent == INPUT_BROKER_UP || event->inputEvent == INPUT_BROKER_DOWN ||
             event->inputEvent == INPUT_BROKER_ALT_LONG) {
+        #endif
             LaunchWithDestination(NODENUM_BROADCAST);
             return 1;
         }
@@ -448,9 +504,12 @@ bool CannedMessageModule::handleTabSwitch(const InputEvent *event)
 int CannedMessageModule::handleDestinationSelectionInput(const InputEvent *event, bool isUp, bool isDown, bool isSelect)
 {
     // Override isDown and isSelect ONLY for destination selector behavior
+    // Override isUp and isDown ONLY for destination selector behaviour
     if (runState == CANNED_MESSAGE_RUN_STATE_DESTINATION_SELECTION) {
-        if (event->inputEvent == INPUT_BROKER_USER_PRESS) {
+        if (event->inputEvent == INPUT_BROKER_USER_PRESS || event->inputEvent == INPUT_BROKER_RIGHT) {
             isDown = true;
+        } else if (event->inputEvent == INPUT_BROKER_LEFT) {
+            isUp = true;
         } else if (event->inputEvent == INPUT_BROKER_SELECT) {
             isSelect = true;
         }
@@ -567,9 +626,12 @@ int CannedMessageModule::handleDestinationSelectionInput(const InputEvent *event
 bool CannedMessageModule::handleMessageSelectorInput(const InputEvent *event, bool isUp, bool isDown, bool isSelect)
 {
     // Override isDown and isSelect ONLY for canned message list behavior
+    // Override isUp and isDown ONLY for destination selector behaviour
     if (runState == CANNED_MESSAGE_RUN_STATE_ACTIVE) {
-        if (event->inputEvent == INPUT_BROKER_USER_PRESS) {
+        if (event->inputEvent == INPUT_BROKER_USER_PRESS || event->inputEvent == INPUT_BROKER_RIGHT) {
             isDown = true;
+        } else if (event->inputEvent == INPUT_BROKER_LEFT) {
+            isUp = true;
         } else if (event->inputEvent == INPUT_BROKER_SELECT) {
             isSelect = true;
         }
@@ -1041,6 +1103,69 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
     requestFocus(); // focus only after event is dispatched
 }
 
+void CannedMessageModule::sendTextSlient(NodeNum dest, ChannelIndex channel, const char *message, bool wantReplies)
+{
+    lastDest = dest;
+    lastChannel = channel;
+    lastDestSet = true;
+
+    meshtastic_MeshPacket *p = allocDataPacket();
+    p->to = dest;
+    p->channel = channel;
+    p->want_ack = true;
+    p->decoded.dest = dest; // Mirror picker: NODENUM_BROADCAST or node->num
+
+    this->lastSentNode = dest;
+    this->incoming = dest;
+
+    // Track this packet’s request ID for matching ACKs
+    this->lastRequestId = p->id;
+
+    // Copy payload
+    p->decoded.payload.size = strlen(message);
+    memcpy(p->decoded.payload.bytes, message, p->decoded.payload.size);
+
+    if (moduleConfig.canned_message.send_bell && p->decoded.payload.size < meshtastic_Constants_DATA_PAYLOAD_LEN) {
+        p->decoded.payload.bytes[p->decoded.payload.size++] = 7;
+        p->decoded.payload.bytes[p->decoded.payload.size] = '\0';
+    }
+
+    this->waitingForAck = true;
+
+    // Send to mesh
+    service->sendToMesh(p, RX_SRC_LOCAL, true);
+
+    // Save outgoing message
+    StoredMessage sm;
+
+    // Always use our local time, consistent with other paths
+    uint32_t nowSecs = getValidTime(RTCQuality::RTCQualityDevice, true);
+    if (nowSecs > 0) {
+        sm.timestamp = nowSecs;
+        sm.isBootRelative = false;
+    } else {
+        sm.timestamp = millis() / 1000;
+        sm.isBootRelative = true; // mark for later upgrade
+    }
+
+    sm.sender = nodeDB->getNodeNum(); // us
+    sm.channelIndex = channel;
+    sm.text = std::string(message);
+
+    // Classify broadcast vs DM
+    if (dest == NODENUM_BROADCAST) {
+        sm.dest = NODENUM_BROADCAST;
+        sm.type = MessageType::BROADCAST;
+    } else {
+        sm.dest = dest;
+        sm.type = MessageType::DM_TO_US;
+    }
+    sm.ackStatus = AckStatus::NONE;
+
+    messageStore.addLiveMessage(sm);
+
+}
+
 int32_t CannedMessageModule::runOnce()
 {
     if (this->runState == CANNED_MESSAGE_RUN_STATE_DESTINATION_SELECTION && needsUpdate) {
@@ -1055,8 +1180,9 @@ int32_t CannedMessageModule::runOnce()
 
     // Normal module disable/idle handling
     if ((this->runState == CANNED_MESSAGE_RUN_STATE_DISABLED) || (this->runState == CANNED_MESSAGE_RUN_STATE_INACTIVE)) {
-        // Clean up virtual keyboard if needed when going inactive
-        if (graphics::NotificationRenderer::virtualKeyboard && graphics::NotificationRenderer::textInputCallback == nullptr) {
+        // Clean up virtual keyboard if needed when going inactive, but only if virtual keyboard is not actively being used
+        if (graphics::NotificationRenderer::virtualKeyboard && graphics::NotificationRenderer::textInputCallback == nullptr &&
+            graphics::NotificationRenderer::current_notification_type != graphics::notificationTypeEnum::text_input) {
             LOG_INFO("Performing delayed virtual keyboard cleanup");
             delete graphics::NotificationRenderer::virtualKeyboard;
             graphics::NotificationRenderer::virtualKeyboard = nullptr;
@@ -1127,8 +1253,11 @@ int32_t CannedMessageModule::runOnce()
         this->cursor = 0;
         this->runState = CANNED_MESSAGE_RUN_STATE_INACTIVE;
 
-        // Clean up virtual keyboard if it exists during timeout
-        if (graphics::NotificationRenderer::virtualKeyboard) {
+        // Clean up virtual keyboard if it exists during timeout, but only if it's not actively being used by another process
+        if (graphics::NotificationRenderer::virtualKeyboard &&
+            graphics::NotificationRenderer::current_notification_type == graphics::notificationTypeEnum::text_input) {
+            LOG_INFO("Virtual keyboard is active - not cleaning up due to CannedMessage timeout");
+        } else if (graphics::NotificationRenderer::virtualKeyboard) {
             LOG_INFO("Cleaning up virtual keyboard due to module timeout");
             delete graphics::NotificationRenderer::virtualKeyboard;
             graphics::NotificationRenderer::virtualKeyboard = nullptr;
@@ -1661,8 +1790,16 @@ void CannedMessageModule::drawDestinationSelectionScreen(OLEDDisplay *display, O
             display->setColor(BLACK);
         }
 
-        // Draw entry text
+// === Draw entry text ===
+#ifdef CJK_ENABLE
+        if (screen->containsCJKCharacters(entryText)) {
+            screen->drawCJKString(display, xOffset + 2, yOffset, entryText);
+        } else {
+            display->drawString(xOffset + 2, yOffset, entryText);
+        }
+#else
         display->drawString(xOffset + 2, yOffset, entryText);
+#endif
         display->setColor(WHITE);
 
         // Draw key icon (after highlight)
@@ -1805,7 +1942,7 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
         return;
     }
 
-    // Disabled Screen
+    // === Disabled Screen ===
     if (this->runState == CANNED_MESSAGE_RUN_STATE_DISABLED) {
         display->setTextAlignment(TEXT_ALIGN_LEFT);
         display->setFont(FONT_SMALL);
@@ -1972,8 +2109,18 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
                             nextX += emote->width + 2;
                         }
                     } else {
+#ifdef CJK_ENABLE
+                        if (screen->containsCJKCharacters(token.second.c_str())) {
+                            screen->drawCJKString(display, nextX, yLine, token.second.c_str());
+                            nextX += screen->getCJKwidth(display, token.second.c_str());
+                        } else {
+                            display->drawString(nextX, yLine, token.second);
+                            nextX += display->getStringWidth(token.second);
+                        }
+#else
                         display->drawString(nextX, yLine, token.second);
                         nextX += display->getStringWidth(token.second);
+#endif
                     }
                 }
                 yLine += rowHeight;
@@ -2115,9 +2262,19 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
                         nextX += emote->width + 2;
                     }
                 } else {
-                    // Text
+// Text
+#ifdef CJK_ENABLE
+                    if (screen->containsCJKCharacters(token.second.c_str())) {
+                        screen->drawCJKString(display, nextX, lineY + textYOffset, token.second.c_str());
+                        nextX += screen->getCJKwidth(display, token.second.c_str());
+                    } else {
+                        display->drawString(nextX, lineY + textYOffset, token.second);
+                        nextX += display->getStringWidth(token.second);
+                    }
+#else
                     display->drawString(nextX, lineY + textYOffset, token.second);
                     nextX += display->getStringWidth(token.second);
+#endif
                 }
             }
 #ifndef USE_EINK

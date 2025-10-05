@@ -117,16 +117,30 @@ NRF52 PRO MICRO PIN ASSIGNMENT
 // #define USE_RF95
 #define USE_SX1268
 
+#ifdef USE_CUSTOM
 // LORA CONFIG
+#define SX126X_CS (32 + 13)      // P1.13 FIXME - we really should define LORA_CS instead
+#define SX126X_DIO1 (0 + 9)      // P0.09 IRQ
+#define SX126X_DIO2_AS_RF_SWITCH // Note for E22 modules: DIO2 is not attached internally to TXEN for automatic TX/RX switching,
+                                 // so it needs connecting externally if it is used in this way
+#define SX126X_BUSY (0 + 29)     // P0.29
+#define SX126X_RESET (0 + 10)    // P0.10
+#define SX126X_RXEN (0 + 24)     // P0.24
+#define SX126X_TXEN RADIOLIB_NC  // Assuming that DIO2 is connected to TXEN pin. If not, TXEN must be connected.
+
+#endif
+
+#ifndef USE_CUSTOM
 #define SX126X_CS (32 + 13)      // P1.13 FIXME - we really should define LORA_CS instead
 #define SX126X_DIO1 (0 + 10)     // P0.10 IRQ
 #define SX126X_DIO2_AS_RF_SWITCH // Note for E22 modules: DIO2 is not attached internally to TXEN for automatic TX/RX switching,
                                  // so it needs connecting externally if it is used in this way
 #define SX126X_BUSY (0 + 29)     // P0.29
 #define SX126X_RESET (0 + 9)     // P0.09
-#define SX126X_RXEN (0 + 17)     // P0.17
+#define SX126X_RXEN (0 + 17)     // P0.24
 #define SX126X_TXEN RADIOLIB_NC  // Assuming that DIO2 is connected to TXEN pin. If not, TXEN must be connected.
 
+#endif
 /*
 On the SX1262, DIO3 sets the voltage for an external TCXO, if one is present. If one is not present, then this should not be used.
 
@@ -142,7 +156,7 @@ Waveshare
 Core1262 has TCXO
 
 */
-// #define SX126X_DIO3_TCXO_VOLTAGE 1.8
+#define SX126X_DIO3_TCXO_VOLTAGE 1.8
 
 #ifdef __cplusplus
 }

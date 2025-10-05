@@ -5,8 +5,8 @@
 
 #ifdef ARCH_ESP32
 // "legacy adc calibration driver is deprecated, please migrate to use esp_adc/adc_cali.h and esp_adc/adc_cali_scheme.h
-#include <esp_adc_cal.h>
-#include <soc/adc_channel.h>
+//#include <esp_adc_cal.h>
+//#include <soc/adc_channel.h>
 #endif
 
 #ifndef NUM_OCV_POINTS
@@ -34,6 +34,8 @@
 #define OCV_ARRAY 4200, 3876, 3826, 3763, 3713, 3660, 3573, 3485, 3422, 3359, 3300
 #elif defined(SEEED_SOLAR_NODE)
 #define OCV_ARRAY 4200, 3986, 3922, 3812, 3734, 3645, 3527, 3420, 3281, 3087, 2786
+#elif defined(R1_NEO)
+#define OCV_ARRAY 4330, 4292, 4254, 4216, 4178, 4140, 4102, 4064, 4026, 3988, 3950
 #else // LiIon
 #define OCV_ARRAY 4190, 4050, 3990, 3890, 3800, 3720, 3630, 3530, 3420, 3300, 3100
 #endif

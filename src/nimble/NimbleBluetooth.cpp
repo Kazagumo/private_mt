@@ -15,6 +15,8 @@
 #include "NimBLEAdvertising.h"
 #include "NimBLEExtAdvertising.h"
 #include "PowerStatus.h"
+#include "nimble/porting/nimble/include/nimble/nimble_port.h"
+#include "nimble/porting/npl/freertos/include/nimble/nimble_port_freertos.h"
 #endif
 
 NimBLECharacteristic *fromNumCharacteristic;
@@ -287,8 +289,8 @@ void NimbleBluetooth::deinit()
     digitalWrite(BLE_LED, LOW);
 #endif
 #endif
-#ifndef NIMBLE_TWO
-    NimBLEDevice::deinit();
+   //NimBLEDevice::deinit();
+   nimble_port_stop();
 #endif
 #endif
 }
@@ -471,4 +473,3 @@ void clearNVS()
     ESP.restart();
 #endif
 }
-#endif

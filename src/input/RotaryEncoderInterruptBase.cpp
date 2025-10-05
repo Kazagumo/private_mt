@@ -47,38 +47,41 @@ int32_t RotaryEncoderInterruptBase::runOnce()
 {
     InputEvent e = {};
     e.inputEvent = INPUT_BROKER_NONE;
-    e.source = this->_originName;
-    unsigned long now = millis();
+    // Handle long press detection for press button
+    if (pressDetected && pressStartTime > 0) {
+        uint32_t pressDuration = millis() - pressStartTime;
+        bool buttonStillPressed = false;
 
-    // Handle press long/short detection
-    if (this->action == ROTARY_ACTION_PRESSED) {
-        bool buttonPressed = !digitalRead(_pinPress);
-        if (!pressDetected && buttonPressed) {
-            pressDetected = true;
-            pressStartTime = now;
-        }
+#if defined(T_DECK)
+        buttonStillPressed = (this->action == TB_ACTION_PRESSED);
+#else
+        buttonStillPressed = !digitalRead(_pinPress);
+#endif
 
-        if (pressDetected) {
-            uint32_t duration = now - pressStartTime;
-            if (!buttonPressed) {
-                // released -> if short press, send short, else already sent long
-                if (duration < LONG_PRESS_DURATION && now - lastPressKeyTime >= pressDebounceMs) {
-                    lastPressKeyTime = now;
-                    LOG_DEBUG("Rotary event Press short");
-                    e.inputEvent = this->_eventPressed;
-                }
-                pressDetected = false;
-                pressStartTime = 0;
-                lastPressLongEventTime = 0;
-                this->action = ROTARY_ACTION_NONE;
-            } else if (duration >= LONG_PRESS_DURATION && this->_eventPressedLong != INPUT_BROKER_NONE &&
-                       lastPressLongEventTime == 0) {
-                // fire single-shot long press
-                lastPressLongEventTime = now;
-                LOG_DEBUG("Rotary event Press long");
-                e.inputEvent = this->_eventPressedLong;
+        if (!buttonStillPressed) {
+            // Button released - check if it was a short press
+            if (pressDuration < LONG_PRESS_DURATION) {
+                e.inputEvent = this->_eventPressed;
             }
+            // Reset state
+            pressDetected = false;
+            pressStartTime = 0;
+            lastPressKeyTime = 0;
+            this->action = ROTARY_ACTION_NONE;
+        } else if (pressDuration >= LONG_PRESS_DURATION && lastPressKeyTime == 0) {
+            // First long press event only - avoid repeated events that cause lag
+            e.inputEvent = this->_eventPressedLong;
+            lastPressKeyTime = millis();
         }
+    }
+
+    e.source = this->_originName;
+    if (this->action == ROTARY_ACTION_PRESSED && !digitalRead(_pinPress) && !pressDetected) {
+        // Start long press detection
+        LOG_DEBUG("Rotary event Press,Detecting LongPress");
+        pressDetected = true;
+        pressStartTime = millis();
+        // Don't send event yet, wait to see if it's a long press
     } else if (this->action == ROTARY_ACTION_CW) {
         LOG_DEBUG("Rotary event CW");
         e.inputEvent = this->_eventCw;
@@ -87,7 +90,12 @@ int32_t RotaryEncoderInterruptBase::runOnce()
         e.inputEvent = this->_eventCcw;
     }
 
+    if (this->action != ROTARY_ACTION_PRESSED || !pressDetected) {
+        this->action = ROTARY_ACTION_NONE;
+    }
     if (e.inputEvent != INPUT_BROKER_NONE) {
+        e.kbchar = 0x00;
+        e.source = this->_originName;
         this->notifyObservers(&e);
     }
 
@@ -95,7 +103,11 @@ int32_t RotaryEncoderInterruptBase::runOnce()
         this->action = ROTARY_ACTION_NONE;
     }
 
-    return INT32_MAX;
+    if (pressDetected) {
+        return 50;
+    } else {
+        return INT32_MAX;
+    }
 }
 
 void RotaryEncoderInterruptBase::intPressHandler()

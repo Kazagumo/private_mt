@@ -126,8 +126,10 @@ ButtonThread *CancelButtonThread = nullptr;
 #include "PowerFSMThread.h"
 
 #if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_I2C
+#ifndef ESENSOR
 #include "motion/AccelerometerThread.h"
 AccelerometerThread *accelerometerThread = nullptr;
+#endif
 #endif
 
 #ifdef HAS_I2S
@@ -242,7 +244,11 @@ const char *getDeviceName()
     if (strcmp(owner.short_name, name) != 0) {
         snprintf(name, sizeof(name), "%s_%02x%02x", owner.short_name, dmac[4], dmac[5]);
     } else {
-        snprintf(name, sizeof(name), "Meshtastic_%02x%02x", dmac[4], dmac[5]);
+        #ifdef GAT562
+        snprintf(name, sizeof(name), "GAT562_%02x%02x", dmac[4], dmac[5]);
+        #else
+        snprintf(name, sizeof(name), "MeshCN_%02x%02x", dmac[4], dmac[5]);
+        #endif
     }
     return name;
 }
@@ -297,6 +303,12 @@ void printInfo()
 #ifndef PIO_UNIT_TESTING
 void setup()
 {
+#if defined(R1_NEO)
+    pinMode(DCDC_EN_HOLD, OUTPUT);
+    digitalWrite(DCDC_EN_HOLD, HIGH);
+    pinMode(NRF_ON, OUTPUT);
+    digitalWrite(NRF_ON, HIGH);
+#endif
 
 #if defined(PIN_POWER_EN)
     pinMode(PIN_POWER_EN, OUTPUT);
@@ -375,7 +387,7 @@ void setup()
     io.pinMode(EXPANDS_DRV_EN, OUTPUT);
     io.digitalWrite(EXPANDS_DRV_EN, HIGH);
     io.pinMode(EXPANDS_AMP_EN, OUTPUT);
-    io.digitalWrite(EXPANDS_AMP_EN, HIGH);
+    io.digitalWrite(EXPANDS_AMP_EN, LOW);
     io.pinMode(EXPANDS_LORA_EN, OUTPUT);
     io.digitalWrite(EXPANDS_LORA_EN, HIGH);
     io.pinMode(EXPANDS_GPS_EN, OUTPUT);
@@ -427,7 +439,7 @@ void setup()
     powerMonInit();
     serialSinceMsec = millis();
 
-    LOG_INFO("\n\n//\\ E S H T /\\ S T / C\n");
+    LOG_INFO("\n\n Testing Purpose only,do not redistribute. \n");
 
     initDeepSleep();
 
@@ -817,7 +829,7 @@ void setup()
 #endif
 
 #if !MESHTASTIC_EXCLUDE_I2C
-#if !defined(ARCH_STM32WL)
+#if !defined(ARCH_STM32WL) && !defined(ESENSOR)
     if (acc_info.type != ScanI2C::DeviceType::NONE) {
         accelerometerThread = new AccelerometerThread(acc_info.type);
     }
@@ -1494,6 +1506,10 @@ void setup()
 uint32_t rebootAtMsec;   // If not zero we will reboot at this time (used to reboot shortly after the update completes)
 uint32_t shutdownAtMsec; // If not zero we will shutdown at this time (used to shutdown from python or mobile client)
 
+#ifdef ARCH_NRF52
+uint8_t nrf52_GPREGRET = 0x00; // Change value to Enter DFU/Serial/BLEOta;
+#endif
+
 // If a thread does something that might need for it to be rescheduled ASAP it can set this flag
 // This will suppress the current delay and instead try to run ASAP.
 bool runASAP;
@@ -1544,7 +1560,7 @@ extern meshtastic_DeviceMetadata getDeviceMetadata()
 // No bluetooth on these targets (yet):
 // Pico W / 2W may get it at some point
 // Portduino and ESP32-C6 are excluded because we don't have a working bluetooth stacks integrated yet.
-#if defined(ARCH_RP2040) || defined(ARCH_PORTDUINO) || defined(ARCH_STM32WL) || defined(CONFIG_IDF_TARGET_ESP32C6)
+#if defined(ARCH_RP2040) || defined(ARCH_PORTDUINO) || defined(ARCH_STM32WL)
     deviceMetadata.excluded_modules |= meshtastic_ExcludedModules_BLUETOOTH_CONFIG;
 #endif
 
@@ -1594,6 +1610,10 @@ void loop()
 #endif
 
     service->loop();
+#if !MESHTASTIC_EXCLUDE_INPUTBROKER && defined(HAS_FREE_RTOS)
+    if (inputBroker)
+        inputBroker->processInputEventQueue();
+#endif
 #if defined(LGFX_SDL)
     if (screen) {
         auto dispdev = screen->getDisplayDevice();

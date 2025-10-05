@@ -66,8 +66,10 @@ extern UdpMulticastHandler *udpHandler;
 extern graphics::Screen *screen;
 
 #if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_I2C
+#ifndef ESENSOR
 #include "motion/AccelerometerThread.h"
 extern AccelerometerThread *accelerometerThread;
+#endif
 #endif
 
 extern bool isVibrating;
@@ -81,6 +83,10 @@ extern uint32_t timeLastPowered;
 
 extern uint32_t rebootAtMsec;
 extern uint32_t shutdownAtMsec;
+
+#ifdef ARCH_NRF52
+extern uint8_t nrf52_GPREGRET;
+#endif
 
 extern uint32_t serialSinceMsec;
 

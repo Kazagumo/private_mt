@@ -21,7 +21,7 @@
 #include "target_specific.h"
 #include <OLEDDisplay.h>
 
-#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
+#ifndef MESHTASTIC_EXCLUDE_ESENSOR
 
 // Sensors
 #include "Sensor/CGRadSensSensor.h"
@@ -249,7 +249,8 @@ int32_t EnvironmentTelemetryModule::runOnce()
 #endif
 #ifdef T1000X_SENSOR_EN
             result = t1000xSensor.runOnce();
-#elif !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
+#elif defined(ESENSOR)
+#elif !defined(MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL) || !defined(GAT562) || !defined(ESENSOR)
             if (dfRobotLarkSensor.hasSensor())
                 result = dfRobotLarkSensor.runOnce();
             if (dfRobotGravitySensor.hasSensor())
@@ -558,6 +559,7 @@ bool EnvironmentTelemetryModule::getEnvironmentTelemetry(meshtastic_Telemetry *m
     valid = valid && t1000xSensor.getMetrics(m);
     hasSensor = true;
 #else
+#if (!ESENSOR || !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL)
     if (dfRobotLarkSensor.hasSensor()) {
         valid = valid && dfRobotLarkSensor.getMetrics(m);
         hasSensor = true;
@@ -628,6 +630,8 @@ bool EnvironmentTelemetryModule::getEnvironmentTelemetry(meshtastic_Telemetry *m
         valid = valid && ina3221Sensor.getMetrics(m);
         hasSensor = true;
     }
+#endif
+#if (!ESENSOR || !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL || !ESENSOR)
     if (veml7700Sensor.hasSensor()) {
         valid = valid && veml7700Sensor.getMetrics(m);
         hasSensor = true;
@@ -676,10 +680,12 @@ bool EnvironmentTelemetryModule::getEnvironmentTelemetry(meshtastic_Telemetry *m
             m->variant.environment_metrics.has_relative_humidity = m_ahtx.variant.environment_metrics.has_relative_humidity;
         }
     }
+#endif
     if (max17048Sensor.hasSensor()) {
         valid = valid && max17048Sensor.getMetrics(m);
         hasSensor = true;
     }
+#if (!ESENSOR || !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL || !ESENSOR)
     if (cgRadSens.hasSensor()) {
         valid = valid && cgRadSens.getMetrics(m);
         hasSensor = true;
@@ -688,6 +694,7 @@ bool EnvironmentTelemetryModule::getEnvironmentTelemetry(meshtastic_Telemetry *m
         valid = valid && pct2075Sensor.getMetrics(m);
         hasSensor = true;
     }
+#endif
 #ifdef HAS_RAKPROT
     valid = valid && rak9154Sensor.getMetrics(m);
     hasSensor = true;

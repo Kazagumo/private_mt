@@ -17,7 +17,7 @@
 #define NEOPIXEL_DATA 38                     // gpio pin used to send data to the neopixels
 #define NEOPIXEL_TYPE (NEO_GRB + NEO_KHZ800) // type of neopixels in use
 
-#define BUTTON_PIN 0 // This is the BOOT button
+#define BUTTON_PIN 9 // This is the BOOT button
 #define BUTTON_NEED_PULLUP
 
 // #define USE_RF95 // RFM95/SX127x

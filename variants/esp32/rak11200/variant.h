@@ -40,11 +40,6 @@ static const uint8_t SCK = 33;
 #define I2C_SDA SDA
 #define I2C_SCL SCL
 
-#undef GPS_RX_PIN
-#define GPS_RX_PIN (RX1)
-#undef GPS_TX_PIN
-#define GPS_TX_PIN (TX1)
-
 #define LED_PIN LED_BLUE
 
 #define PIN_VBAT WB_A0
@@ -53,29 +48,34 @@ static const uint8_t SCK = 33;
 
 // https://docs.rakwireless.com/Product-Categories/WisBlock/RAK13300/
 
-#define LORA_DIO0 RADIOLIB_NC // a No connect on the SX1262/SX1268 module
-#define LORA_RESET WB_IO4     // RST for SX1276, and for SX1262/SX1268
-#define LORA_DIO1 WB_IO6      // IRQ for SX1262/SX1268
-#define LORA_DIO2 WB_IO5      // BUSY for SX1262/SX1268
-#define LORA_DIO3                                                                                                                \
-    RADIOLIB_NC // Not connected on PCB, but internally on the TTGO SX1262/SX1268, if DIO3 is high the TXCO is enabled
+#define LORA_DIO0 13  // BUSY
+#define LORA_RESET 23 // RST for SX1276, and for SX1262/SX1268
+#define LORA_DIO1 22  // IRQ for SX1262/SX1268
+
+// In transmitting, set TXEN as high communication level，RXEN pin is low level;
+// In receiving, set RXEN as high communication level, TXEN is lowlevel;
+// Before powering off, set TXEN、RXEN as low level.
+#define LORA_RXEN 27
 
 #undef LORA_SCK
-#define LORA_SCK SCK
+#define LORA_SCK 33
 #undef LORA_MISO
-#define LORA_MISO MISO
+#define LORA_MISO 35
 #undef LORA_MOSI
-#define LORA_MOSI MOSI
+#define LORA_MOSI 25
 #undef LORA_CS
-#define LORA_CS SS
+#define LORA_CS 32
 
-#define USE_SX1262
-#define SX126X_ANT_SW WB_IO3
-#define SX126X_CS SS // NSS for SX126X
+#define USE_SX1268
+// common pinouts for SX126X modules
+#define SX126X_CS LORA_CS
 #define SX126X_DIO1 LORA_DIO1
-#define SX126X_BUSY LORA_DIO2
-#define SX126X_RESET LORA_RESET
-#define SX126X_POWER_EN WB_IO2
-// DIO2 controlls an antenna switch and the TCXO voltage is controlled by DIO3
 #define SX126X_DIO2_AS_RF_SWITCH
+#define SX126X_BUSY LORA_DIO0
+#define SX126X_RESET LORA_RESET
+#define SX126X_RXEN LORA_RXEN
+#define SX126X_TXEN RADIOLIB_NC
+
+#define SX126X_MAX_POWER 18
 #define SX126X_DIO3_TCXO_VOLTAGE 1.8
+#define TCXO_OPTIONAL // make it so that the firmware can try both TCXO and XTAL

@@ -107,11 +107,20 @@
 #include "modules/DropzoneModule.h"
 #endif
 
+#ifdef ESP32C6
+#include "modules/LuaScriptModule.h"
+#endif
+
 /**
  * Create module instances here.  If you are adding a new module, you must 'new' it here (or somewhere else)
  */
 void setupModules()
 {
+
+#ifdef ESP32C6
+luaScriptModule = new LuaScriptModule();
+#endif
+
 #if (HAS_BUTTON || ARCH_PORTDUINO) && !MESHTASTIC_EXCLUDE_INPUTBROKER
     if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
         inputBroker = new InputBroker();
@@ -148,7 +157,8 @@ void setupModules()
     }
 #endif
 #if !MESHTASTIC_EXCLUDE_ATAK
-    if (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_TAK, meshtastic_Config_DeviceConfig_Role_TAK_TRACKER)) {
+    if (config.device.role == meshtastic_Config_DeviceConfig_Role_TAK ||
+        config.device.role == meshtastic_Config_DeviceConfig_Role_TAK_TRACKER) {
         atakPluginModule = new AtakPluginModule();
     }
 #endif

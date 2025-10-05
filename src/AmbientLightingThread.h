@@ -1,5 +1,6 @@
 #include "Observer.h"
 #include "configuration.h"
+#include "sleep.h"
 
 #ifdef HAS_NCP5623
 #include <graphics/RAKled.h>
@@ -12,6 +13,10 @@ LP5562 rgbw;
 #endif
 
 #ifdef HAS_NEOPIXEL
+#include "AmbientLightLock.h"
+#ifdef ESP32C6
+#include "esp32-hal-periman.h"
+#endif
 #include <graphics/NeoPixel.h>
 Adafruit_NeoPixel pixels(NEOPIXEL_COUNT, NEOPIXEL_DATA, NEOPIXEL_TYPE);
 #endif
@@ -91,8 +96,36 @@ class AmbientLightingThread : public concurrency::OSThread
 #if defined(HAS_NCP5623) || defined(HAS_LP5562)
             if ((_type == ScanI2C::NCP5623 || _type == ScanI2C::LP5562) && moduleConfig.ambient_lighting.led_state) {
 #endif
+                if (isBusy) {
+                    return 500;
+                }
+                #ifdef ESP32C6
+                if (unlikely((NEOPIXEL_DATA) != ESP32_BUS_TYPE_RMT_TX)){
+                    rmtInit(NEOPIXEL_DATA, RMT_TX_MODE, RMT_MEM_NUM_BLOCKS_1, 10000000);
+                }
+                #endif
+                if (screen->screenStatus()){
+                    if (pixels.getBrightness() != 0){
+                        pixels.setBrightness(0);
+                        pixels.show();
+                        current = 0;
+                    }
+                    return 500;
+                }
+                if (current < moduleConfig.ambient_lighting.current) {
+                    pixels.setBrightness(current);
+                } else {
+                    pixels.setBrightness(moduleConfig.ambient_lighting.current -
+                                         (current - moduleConfig.ambient_lighting.current));
+                }
                 setLighting();
-                return 30000; // 30 seconds to reset from any animations that may have been running from Ext. Notification
+                if (current == 0) {
+                    current = moduleConfig.ambient_lighting.current * 2;
+                    return 2500;
+                } else {
+                    current--;
+                }
+                return 30; // 30 seconds to reset from any animations that may have been running from Ext. Notification
 #if defined(HAS_NCP5623) || defined(HAS_LP5562)
             }
 #endif

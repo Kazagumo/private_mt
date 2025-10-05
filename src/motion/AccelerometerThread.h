@@ -3,7 +3,7 @@
 #define _ACCELEROMETER_H_
 
 #include "configuration.h"
-
+#ifndef ESENSOR
 #if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_I2C
 
 #include "../concurrency/OSThread.h"
@@ -160,6 +160,8 @@ class AccelerometerThread : public concurrency::OSThread
         sensor = nullptr;
     }
 };
+
+#endif
 
 #endif
 

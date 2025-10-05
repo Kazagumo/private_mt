@@ -74,19 +74,63 @@ int32_t TrackballInterruptBase::runOnce()
             // Reset state
             pressDetected = false;
             pressStartTime = 0;
-            lastLongPressEventTime = 0;
+            lastPressKeyTime = 0;
             this->action = TB_ACTION_NONE;
         } else if (pressDuration >= LONG_PRESS_DURATION) {
             // Long press detected
             uint32_t currentTime = millis();
             // Only trigger long press event if enough time has passed since the last one
-            if (lastLongPressEventTime == 0 || (currentTime - lastLongPressEventTime) >= LONG_PRESS_REPEAT_INTERVAL) {
+            if (lastPressKeyTime == 0 || (currentTime - lastPressKeyTime) >= LONG_PRESS_REPEAT_INTERVAL) {
                 e.inputEvent = this->_eventPressedLong;
-                lastLongPressEventTime = currentTime;
+                lastPressKeyTime = currentTime;
             }
             this->action = TB_ACTION_PRESSED_LONG;
         }
     }
+
+        if (directionDetected && directionStartTime > 0) {
+        uint32_t directionDuration = millis() - directionStartTime;
+        uint8_t directionPressed = this->action;
+        uint8_t directionPressedNow = 0;
+        directionInterval++;
+
+        if (!digitalRead(_pinUp)) {
+            directionPressedNow = TB_ACTION_UP;
+        } else if (!digitalRead(_pinDown)) {
+            directionPressedNow = TB_ACTION_DOWN;
+        } else if (!digitalRead(_pinLeft)) {
+            directionPressedNow = TB_ACTION_LEFT;
+        } else if (!digitalRead(_pinRight)) {
+            directionPressedNow = TB_ACTION_RIGHT;
+        }
+
+        if (directionPressedNow < 3) {
+            // Reset state
+            directionDetected = false;
+            directionStartTime = 0;
+            directionInterval = 0;
+            this->action = TB_ACTION_NONE;
+        } else if (directionDuration >= LONG_PRESS_DURATION && directionPressedNow >= 3 && directionInterval >= 3) {
+            // repeat event when long press these direction.
+            switch (directionPressedNow) {
+            case TB_ACTION_UP:
+                e.inputEvent = this->_eventUp;
+                break;
+            case TB_ACTION_DOWN:
+                e.inputEvent = this->_eventDown;
+                break;
+            case TB_ACTION_LEFT:
+                e.inputEvent = this->_eventLeft;
+                break;
+            case TB_ACTION_RIGHT:
+                e.inputEvent = this->_eventRight;
+                break;
+            }
+
+            directionInterval = 0;
+        }
+    }
+
 
 #if defined(T_DECK) // T-deck gets a super-simple debounce on trackball
     if (this->action == TB_ACTION_PRESSED && !pressDetected) {
@@ -113,17 +157,22 @@ int32_t TrackballInterruptBase::runOnce()
         pressDetected = true;
         pressStartTime = millis();
         // Don't send event yet, wait to see if it's a long press
-    } else if (this->action == TB_ACTION_UP && !digitalRead(_pinUp)) {
-        // LOG_DEBUG("Trackball event UP");
+    } else if (this->action == TB_ACTION_UP && !digitalRead(_pinUp) && !directionDetected) {
+        directionDetected = true;
+        directionStartTime = millis();
         e.inputEvent = this->_eventUp;
-    } else if (this->action == TB_ACTION_DOWN && !digitalRead(_pinDown)) {
-        // LOG_DEBUG("Trackball event DOWN");
+        // send event first,will automatically trigger every 50ms * 3 after 500ms
+    } else if (this->action == TB_ACTION_DOWN && !digitalRead(_pinDown) && !directionDetected) {
+        directionDetected = true;
+        directionStartTime = millis();
         e.inputEvent = this->_eventDown;
-    } else if (this->action == TB_ACTION_LEFT && !digitalRead(_pinLeft)) {
-        // LOG_DEBUG("Trackball event LEFT");
+    } else if (this->action == TB_ACTION_LEFT && !digitalRead(_pinLeft) && !directionDetected) {
+        directionDetected = true;
+        directionStartTime = millis();
         e.inputEvent = this->_eventLeft;
-    } else if (this->action == TB_ACTION_RIGHT && !digitalRead(_pinRight)) {
-        // LOG_DEBUG("Trackball event RIGHT");
+    } else if (this->action == TB_ACTION_RIGHT && !digitalRead(_pinRight) && !directionDetected) {
+        directionDetected = true;
+        directionStartTime = millis();
         e.inputEvent = this->_eventRight;
     }
 #endif

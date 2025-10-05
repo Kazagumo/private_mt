@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef CJK_ENABLE
+#include "graphics/fonts/CJKFontData.h"
+#endif
+
 #ifdef OLED_PL
 #include "graphics/fonts/OLEDDisplayFontsPL.h"
 #endif

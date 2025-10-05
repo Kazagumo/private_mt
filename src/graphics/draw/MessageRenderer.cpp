@@ -23,6 +23,8 @@ extern bool hasUnreadMessage;
 extern meshtastic_DeviceState devicestate;
 extern graphics::Screen *screen;
 
+bool inMessage;
+
 using graphics::Emote;
 using graphics::emotes;
 using graphics::numEmotes;
@@ -34,6 +36,8 @@ namespace MessageRenderer
 
 static std::vector<std::string> cachedLines;
 static std::vector<int> cachedHeights;
+bool isManualScroll;
+input_broker_event event;
 
 void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string &line, const Emote *emotes, int emoteCount)
 {
@@ -106,6 +110,23 @@ void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string 
 
         if (nextControl > i) {
             std::string textChunk = line.substr(i, nextControl - i);
+#ifdef CJK_ENABLE
+            if (inBold) {
+                // Faux bold: draw twice, offset by 1px
+                if (screen->containsCJKCharacters(textChunk.c_str())) {
+                    screen->drawCJKString(display, cursorX + 1, fontY, textChunk.c_str());
+                } else {
+                    display->drawString(cursorX + 1, fontY, textChunk.c_str());
+                }
+            }
+            if (screen->containsCJKCharacters(textChunk.c_str())) {
+                screen->drawCJKString(display, cursorX, fontY, textChunk.c_str());
+                cursorX += screen->getCJKwidth(display, textChunk.c_str());
+            } else {
+                display->drawString(cursorX, fontY, textChunk.c_str());
+                cursorX += display->getStringWidth(textChunk.c_str());
+            }
+#else
             if (inBold) {
                 // Faux bold: draw twice, offset by 1px
                 display->drawString(cursorX + 1, fontY, textChunk.c_str());
@@ -115,6 +136,7 @@ void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string 
             cursorX += display->getStringWidth(textChunk.c_str(), textChunk.length(), true);
 #else
             cursorX += display->getStringWidth(textChunk.c_str());
+#endif
 #endif
             i = nextControl;
             continue;
@@ -130,6 +152,22 @@ void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string 
         } else {
             // No more emotes — render the rest of the line
             std::string remaining = line.substr(i);
+#ifdef CJK_ENABLE
+            if (inBold) {
+                if (screen->containsCJKCharacters(remaining.c_str())) {
+                    screen->drawCJKString(display, cursorX + 1, fontY, remaining.c_str());
+                } else {
+                    display->drawString(cursorX + 1, fontY, remaining.c_str());
+                }
+            }
+            if (screen->containsCJKCharacters(remaining.c_str())) {
+                screen->drawCJKString(display, cursorX, fontY, remaining.c_str());
+                cursorX += screen->getCJKwidth(display, remaining.c_str());
+            } else {
+                display->drawString(cursorX, fontY, remaining.c_str());
+                cursorX += display->getStringWidth(remaining.c_str());
+            }
+#else
             if (inBold) {
                 display->drawString(cursorX + 1, fontY, remaining.c_str());
             }
@@ -138,6 +176,7 @@ void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string 
             cursorX += display->getStringWidth(remaining.c_str(), remaining.length(), true);
 #else
             cursorX += display->getStringWidth(remaining.c_str());
+#endif
 #endif
 
             break;
@@ -290,6 +329,12 @@ void drawRelayMark(OLEDDisplay *display, int x, int y, int size = 8)
     display->drawLine(centerX - 1, centerY - 4, centerX + 1, centerY - 4);
 }
 
+void handleManualScroll(input_broker_event inevent)
+{
+    event = inevent;
+    inMessage = true;
+}
+
 void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
     // Ensure any boot-relative timestamps are upgraded if RTC is valid
@@ -373,11 +418,15 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         graphics::drawCommonHeader(display, x, y, titleStr);
         didReset = false;
         const char *messageString = "No messages";
-        int center_text = (SCREEN_WIDTH / 2) - (display->getStringWidth(messageString) / 2);
-#if defined(M5STACK_UNITC6L)
-        display->drawString(center_text, windowY + (windowHeight / 2) - (FONT_HEIGHT_SMALL / 2) - 5, messageString);
+        int center_text = (SCREEN_WIDTH / 2) - (screen->getCJKwidth(display, messageString) / 2);
+#ifdef CJK_ENABLE
+        if (screen->containsCJKCharacters(messageString)) {
+            screen->drawCJKString(display, center_text, getTextPositions(display)[2], messageString);
+        } else {
+            display->drawString(center_text, getTextPositions(display)[2], messageString);
+        }
 #else
-        display->drawString(center_text, getTextPositions(display)[2], messageString);
+        display->drawString(center_text, getTextPositions(display)[2], messageString)
 #endif
         return;
     }
@@ -499,33 +548,55 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     int usableScrollHeight = usableHeight;
     int scrollStop = std::max(0, totalHeight - usableScrollHeight + cachedHeights.back());
 
-    float delta = (now - lastTime) / 400.0f;
-    lastTime = now;
-    const float scrollSpeed = 2.0f;
+    switch (event) {
+    case INPUT_BROKER_UP:
+        isManualScroll = true;
+        scrollY = scrollY - 14 < 0 ? 0 : scrollY - 14;
+        break;
+    case INPUT_BROKER_DOWN:
+        isManualScroll = true;
+        scrollY = scrollY + 14 > totalHeight ? totalHeight : scrollY + 14;
+        break;
+    case INPUT_BROKER_LEFT:
+        isManualScroll = false;
+        inMessage = false;
+        break;
+    case INPUT_BROKER_RIGHT:
+        isManualScroll = false;
+        inMessage = false;
+        break;
+    }
 
-    if (scrollStartDelay == 0)
-        scrollStartDelay = now;
-    if (!scrollStarted && now - scrollStartDelay > 2000)
-        scrollStarted = true;
+    if (isManualScroll) {
 
-    if (totalHeight > usableScrollHeight) {
-        if (scrollStarted) {
-            if (!waitingToReset) {
-                scrollY += delta * scrollSpeed;
-                if (scrollY >= scrollStop) {
-                    scrollY = scrollStop;
-                    waitingToReset = true;
-                    pauseStart = lastTime;
+        float delta = (now - lastTime) / 400.0f;
+        lastTime = now;
+        const float scrollSpeed = 2.0f;
+
+        if (scrollStartDelay == 0)
+            scrollStartDelay = now;
+        if (!scrollStarted && now - scrollStartDelay > 2000)
+            scrollStarted = true;
+
+        if (totalHeight > usableScrollHeight) {
+            if (scrollStarted) {
+                if (!waitingToReset) {
+                    scrollY += delta * scrollSpeed;
+                    if (scrollY >= scrollStop) {
+                        scrollY = scrollStop;
+                        waitingToReset = true;
+                        pauseStart = lastTime;
+                    }
+                } else if (lastTime - pauseStart > 3000) {
+                    scrollY = 0;
+                    waitingToReset = false;
+                    scrollStarted = false;
+                    scrollStartDelay = lastTime;
                 }
-            } else if (lastTime - pauseStart > 3000) {
-                scrollY = 0;
-                waitingToReset = false;
-                scrollStarted = false;
-                scrollStartDelay = lastTime;
             }
+        } else {
+            scrollY = 0;
         }
-    } else {
-        scrollY = 0;
     }
 
     int scrollOffset = static_cast<int>(scrollY);
@@ -540,7 +611,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         if (lineY > -cachedHeights[i] && lineY < scrollBottom) {
             if (isHeader[i]) {
                 // Render header
-                int w = display->getStringWidth(cachedLines[i].c_str());
+                int w = screen->getCJKwidth(display, cachedLines[i].c_str());
                 int headerX = isMine[i] ? (SCREEN_WIDTH - w - 2) : x;
                 display->drawString(headerX, lineY, cachedLines[i].c_str());
 
@@ -569,7 +640,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
             } else {
                 // Render message line
                 if (isMine[i]) {
-                    int w = display->getStringWidth(cachedLines[i].c_str());
+                    int w = screen->getCJKwidth(display, cachedLines[i].c_str());
                     int rightX = SCREEN_WIDTH - w - 2;
                     drawStringWithEmotes(display, rightX, lineY, cachedLines[i], emotes, numEmotes);
                 } else {
@@ -610,6 +681,23 @@ std::vector<std::string> generateLines(OLEDDisplay *display, const char *headerS
             line += word + ' ';
             word.clear();
         } else {
+#ifdef CJK_ENABLE
+            int byteCount;
+            screen->utf8ToUnicode(&ch, byteCount); // Not sure the UTF-8 Char's len,get it.
+            for (int j = 0; j < byteCount; ++j) {
+                word += messageBuf[i + j]; // Write a whole UTF-8 encoded char into word
+            }
+            std::string test = line + word;
+            // Keep these lines for diagnostics
+            // LOG_INFO("Char: '%c' (0x%02X)", ch, (unsigned char)ch);
+            // LOG_INFO("Current String: %s", test.c_str());
+            if (screen->getCJKwidth(display, test.c_str()) >= (textWidth - 12)) { // Use CJKwidth to get actual width of str.
+                if (!line.empty() && line.length() > 3)                           // it's unlikely that a string contains
+                    lines.push_back(line);                                        // less than 3 chars will take full screen.
+                line = word;
+                word.clear();
+            }
+#else
             word += ch;
             std::string test = line + word;
 #if defined(OLED_UA) || defined(OLED_RU)
@@ -623,6 +711,7 @@ std::vector<std::string> generateLines(OLEDDisplay *display, const char *headerS
                 line = word;
                 word.clear();
             }
+#endif
         }
     }
 
@@ -630,7 +719,6 @@ std::vector<std::string> generateLines(OLEDDisplay *display, const char *headerS
         line += word;
     if (!line.empty())
         lines.push_back(line);
-
     return lines;
 }
 
@@ -684,6 +772,7 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
         }
 
         rowHeights.push_back(lineHeight);
+        LOG_INFO("height: %d", lineHeight);
     }
 
     return rowHeights;
@@ -698,11 +787,28 @@ void renderMessageContent(OLEDDisplay *display, const std::vector<std::string> &
             lineY += rowHeights[j];
         if (lineY > -rowHeights[i] && lineY < scrollBottom) {
             if (i == 0 && isInverted) {
+#ifdef CJK_ENABLE
+                if (screen->containsCJKCharacters(lines[i].c_str())) {
+                    screen->drawCJKString(display, x, lineY, lines[i].c_str());
+                } else {
+                    display->drawString(x, lineY, lines[i].c_str());
+                }
+                if (isBold) {
+                    if (screen->containsCJKCharacters(lines[i].c_str())) {
+                        screen->drawCJKString(display, x, lineY, lines[i].c_str());
+                    } else {
+                        display->drawString(x, lineY, lines[i].c_str());
+                    }
+                }
+#else
                 display->drawString(x, lineY, lines[i].c_str());
                 if (isBold)
                     display->drawString(x, lineY, lines[i].c_str());
+#endif
             } else {
-                drawStringWithEmotes(display, x, lineY, lines[i], emotes, numEmotes);
+                if (!lines[i].empty())
+                    drawStringWithEmotes(display, x, lineY, lines[i], emotes, numEmotes);
+                // log_e("content: %s ,len: %d",lines[i].c_str(),lines[i].length());
             }
         }
     }

@@ -19,6 +19,7 @@
 #include "modules/AdminModule.h"
 #include "modules/CannedMessageModule.h"
 #include "modules/KeyVerificationModule.h"
+#include "modules/LuaScriptModule.h"
 
 #include "modules/TraceRouteModule.h"
 #include <functional>
@@ -59,11 +60,11 @@ void menuHandler::OnboardMessage()
     enum optionsNumbers { OK, got };
     BannerOverlayOptions bannerOptions;
 #if HAS_TFT
-    bannerOptions.message = "Welcome to Meshtastic!\nSwipe to navigate and\nlong press to select\nor open a menu.";
+    bannerOptions.message = "Welcome!\nSwipe to navigate and\nlong press to select\nor open a menu.";
 #elif defined(BUTTON_PIN)
-    bannerOptions.message = "Welcome to Meshtastic!\nClick to navigate and\nlong press to select\nor open a menu.";
+    bannerOptions.message = "Welcome!\nClick to navigate and\nlong press to select\nor open a menu.";
 #else
-    bannerOptions.message = "Welcome to Meshtastic!\nUse the Select button\nto open menus\nand make selections.";
+    bannerOptions.message = "Welcome!\nUse the Select button\nto open menus\nand make selections.";
 #endif
     bannerOptions.optionsArrayPtr = optionsArray;
     bannerOptions.optionsCount = 2;
@@ -118,6 +119,8 @@ void menuHandler::LoraRegionPicker(uint32_t duration)
     bannerOptions.bannerCallback = [](int selected) -> void {
         if (selected != 0 && config.lora.region != _meshtastic_Config_LoRaConfig_RegionCode(selected)) {
             config.lora.region = _meshtastic_Config_LoRaConfig_RegionCode(selected);
+            auto changes = SEGMENT_CONFIG;
+
             // This is needed as we wait til picking the LoRa region to generate keys for the first time.
             if (!owner.is_licensed) {
                 bool keygenSuccess = false;
@@ -126,6 +129,7 @@ void menuHandler::LoraRegionPicker(uint32_t duration)
                     if (crypto->regeneratePublicKey(config.security.public_key.bytes, config.security.private_key.bytes)) {
                         keygenSuccess = true;
                     }
+
                 } else {
                     LOG_INFO("Generate new PKI keys");
                     crypto->generateKeyPair(config.security.public_key.bytes, config.security.private_key.bytes);
@@ -143,7 +147,14 @@ void menuHandler::LoraRegionPicker(uint32_t duration)
             if (myRegion->dutyCycle < 100) {
                 config.lora.ignore_mqtt = true; // Ignore MQTT by default if region has a duty cycle limit
             }
-            service->reloadConfig(SEGMENT_CONFIG);
+
+            if (strncmp(moduleConfig.mqtt.root, default_mqtt_root, strlen(default_mqtt_root)) == 0) {
+                //  Default broker is in use, so subscribe to the appropriate MQTT root topic for this region
+                sprintf(moduleConfig.mqtt.root, "%s/%s", default_mqtt_root, myRegion->name);
+                changes |= SEGMENT_MODULECONFIG;
+            }
+
+            service->reloadConfig(changes);
             rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
         }
     };
@@ -900,12 +911,12 @@ void menuHandler::positionBaseMenu()
     static const char *optionsArray[enumEnd] = {"Back", "GPS Toggle", "GPS Format", "Compass"};
     static int optionsEnumArray[enumEnd] = {Back, GPSToggle, GPSFormat, CompassMenu};
     int options = 4;
-
+#ifndef ESENSOR
     if (accelerometerThread) {
         optionsArray[options] = "Compass Calibrate";
         optionsEnumArray[options++] = CompassCalibrate;
     }
-
+#endif
     BannerOverlayOptions bannerOptions;
     bannerOptions.message = "Position Action";
     bannerOptions.optionsArrayPtr = optionsArray;
@@ -921,8 +932,10 @@ void menuHandler::positionBaseMenu()
         } else if (selected == CompassMenu) {
             menuQueue = compass_point_north_menu;
             screen->runNow();
+#ifndef ESENSOR
         } else if (selected == CompassCalibrate) {
             accelerometerThread->calibrate(30);
+#endif
         }
     };
     screen->showOverlayBanner(bannerOptions);
@@ -1121,11 +1134,11 @@ void menuHandler::BluetoothToggleMenu()
 
 void menuHandler::BuzzerModeMenu()
 {
-    static const char *optionsArray[] = {"All Enabled", "Disabled", "Notifications", "System Only"};
+    static const char *optionsArray[] = {"All Enabled", "Disabled", "Notifications", "System Only", "DMs Only"};
     BannerOverlayOptions bannerOptions;
     bannerOptions.message = "Buzzer Mode";
     bannerOptions.optionsArrayPtr = optionsArray;
-    bannerOptions.optionsCount = 4;
+    bannerOptions.optionsCount = 5;
     bannerOptions.bannerCallback = [](int selected) -> void {
         config.device.buzzer_mode = (meshtastic_Config_DeviceConfig_BuzzerMode)selected;
         service->reloadConfig(SEGMENT_CONFIG);
@@ -1202,7 +1215,7 @@ void menuHandler::switchToMUIMenu()
 
 void menuHandler::TFTColorPickerMenu(OLEDDisplay *display)
 {
-    static const char *optionsArray[] = {"Back", "Default", "Meshtastic Green", "Yellow", "Red", "Orange", "Purple", "Teal",
+    static const char *optionsArray[] = {"Back", "Default", "Green", "Yellow", "Red", "Orange", "Purple", "Teal",
                                          "Pink", "White"};
     BannerOverlayOptions bannerOptions;
     bannerOptions.message = "Select Screen Color";
@@ -1217,7 +1230,7 @@ void menuHandler::TFTColorPickerMenu(OLEDDisplay *display)
             LOG_INFO("Setting color to system default or defined variant");
             // Given just before we set all these to zero, we will allow this to go through
         } else if (selected == 2) {
-            LOG_INFO("Setting color to Meshtastic Green");
+            LOG_INFO("Setting color to Green");
             TFT_MESH_r = 103;
             TFT_MESH_g = 234;
             TFT_MESH_b = 148;
@@ -1432,16 +1445,19 @@ void menuHandler::numberTest()
 
 void menuHandler::wifiBaseMenu()
 {
-    enum optionsNumbers { Back, Wifi_toggle };
+    enum optionsNumbers { Back, Wifi_toggle ,file_manager };
 
-    static const char *optionsArray[] = {"Back", "WiFi Toggle"};
+    static const char *optionsArray[] = {"Back", "WiFi Toggle", "File Manager"};
     BannerOverlayOptions bannerOptions;
     bannerOptions.message = "WiFi Menu";
     bannerOptions.optionsArrayPtr = optionsArray;
-    bannerOptions.optionsCount = 2;
+    bannerOptions.optionsCount = 3;
     bannerOptions.bannerCallback = [](int selected) -> void {
         if (selected == Wifi_toggle) {
             menuQueue = wifi_toggle_menu;
+            screen->runNow();
+        } else if (selected == file_manager) {
+            menuQueue = file_manager_menu;
             screen->runNow();
         }
     };
@@ -1451,7 +1467,8 @@ void menuHandler::wifiBaseMenu()
 void menuHandler::wifiToggleMenu()
 {
     enum optionsNumbers { Back, Wifi_toggle };
-
+    if (config.network.wifi_enabled == true)
+    {
     static const char *optionsArray[] = {"Back", "Disable"};
     BannerOverlayOptions bannerOptions;
     bannerOptions.message = "Disable Wifi and\nEnable Bluetooth?";
@@ -1461,8 +1478,52 @@ void menuHandler::wifiToggleMenu()
         if (selected == Wifi_toggle) {
             config.network.wifi_enabled = false;
             config.bluetooth.enabled = true;
+            moduleConfig.mqtt.proxy_to_client_enabled = true;
             service->reloadConfig(SEGMENT_CONFIG);
+            service->reloadConfig(SEGMENT_MODULECONFIG);
             rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
+        }
+    };
+    screen->showOverlayBanner(bannerOptions);
+    } else {
+    static const char *optionsArray[] = {"Back", "Disable"};
+    BannerOverlayOptions bannerOptions;
+    bannerOptions.message = "Disable Bluetooth and\nEnable Wifi?";
+    bannerOptions.optionsArrayPtr = optionsArray;
+    bannerOptions.optionsCount = 2;
+    bannerOptions.bannerCallback = [](int selected) -> void {
+        if (selected == Wifi_toggle) {
+            config.network.wifi_enabled = false;
+            config.bluetooth.enabled = true;
+            moduleConfig.mqtt.proxy_to_client_enabled = true;
+            service->reloadConfig(SEGMENT_CONFIG);
+            service->reloadConfig(SEGMENT_MODULECONFIG);
+            rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
+        }
+    };
+    screen->showOverlayBanner(bannerOptions);
+    }
+}
+
+void menuHandler::fileManagerMenu()
+{
+    enum optionsNumbers { Back, toggle };
+    static const char *optionsArray[] = {"Back", "Toggle"};
+    BannerOverlayOptions bannerOptions;
+    if (luaScriptModule->isRunning()) {
+        bannerOptions.message = "File Manager running";
+    } else {
+        bannerOptions.message = "File Manager stopped";
+    }
+    bannerOptions.optionsArrayPtr = optionsArray;
+    bannerOptions.optionsCount = 2;
+    bannerOptions.bannerCallback = [](int selected) -> void {
+        if (selected == toggle) {
+            if (luaScriptModule->isRunning()){
+                luaScriptModule->stopFileServer();
+            } else {
+                luaScriptModule->startFileServer();
+            }
         }
     };
     screen->showOverlayBanner(bannerOptions);
@@ -1545,7 +1606,7 @@ void menuHandler::screenOptionsMenu()
 void menuHandler::powerMenu()
 {
 
-    enum optionsNumbers { Back, Reboot, Shutdown, MUI };
+    enum optionsNumbers { Back, Reboot, Shutdown, MUI, Bootloader };
     static const char *optionsArray[4] = {"Back"};
     static int optionsEnumArray[4] = {Back};
     int options = 1;
@@ -1559,6 +1620,11 @@ void menuHandler::powerMenu()
 #if HAS_TFT
     optionsArray[options] = "Switch to MUI";
     optionsEnumArray[options++] = MUI;
+#endif
+
+#ifdef ARCH_NRF52
+    optionsArray[options] = "Bootloader";
+    optionsEnumArray[options++] = Bootloader;
 #endif
 
     BannerOverlayOptions bannerOptions;
@@ -1580,6 +1646,11 @@ void menuHandler::powerMenu()
         } else if (selected == MUI) {
             menuHandler::menuQueue = menuHandler::mui_picker;
             screen->runNow();
+        #ifdef ARCH_NRF52
+        } else if (selected == Bootloader) {
+            menuHandler::menuQueue = menuHandler::reset_to_bl;
+            screen->runNow();
+        #endif
         } else {
             menuQueue = system_base_menu;
             screen->runNow();
@@ -1618,6 +1689,29 @@ void menuHandler::keyVerificationFinalPrompt()
         screen->showOverlayBanner(options);
     }
 }
+
+#ifdef ARCH_NRF52
+void menuHandler::resetToBL()
+{
+    static const char *optionsArray[] = {"Back", "Confirm"};
+    BannerOverlayOptions bannerOptions;
+    bannerOptions.message = "Enter Bootloader?";
+    bannerOptions.optionsArrayPtr = optionsArray;
+    bannerOptions.optionsCount = 2;
+    bannerOptions.bannerCallback = [](int selected) -> void {
+        if (selected == 1) {
+            IF_SCREEN(screen->showSimpleBanner("Bootloader mode\nPower cycle to exit.", 0));
+            nodeDB->saveToDisk();
+            nrf52_GPREGRET = 0x57; // this will let device go into USB DFU.
+            rebootAtMsec = millis() + DEFAULT_REBOOT_SECONDS * 1000;
+        } else {
+            menuQueue = power_menu;
+            screen->runNow();
+        }
+    };
+    screen->showOverlayBanner(bannerOptions);
+}
+#endif
 
 void menuHandler::FrameToggles_menu()
 {
@@ -1789,6 +1883,11 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
     case mui_picker:
         switchToMUIMenu();
         break;
+#ifdef ARCH_NRF52
+    case reset_to_bl:
+        resetToBL();
+        break;
+#endif
     case tftcolormenupicker:
         TFTColorPickerMenu(display);
         break;
@@ -1818,6 +1917,9 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
         break;
     case wifi_toggle_menu:
         wifiToggleMenu();
+        break;
+    case file_manager_menu:
+        fileManagerMenu();
         break;
     case key_verification_init:
         keyVerificationInitMenu();

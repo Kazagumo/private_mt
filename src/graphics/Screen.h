@@ -46,6 +46,20 @@ class Screen
     };
 
     explicit Screen(ScanI2C::DeviceAddress, meshtastic_Config_DisplayConfig_OledType, OLEDDISPLAY_GEOMETRY);
+
+#ifdef CJK_ENABLE
+    std::vector<String> textLines;
+    int currentLineStart = 0;
+    unsigned long lastScrollTime = 0;
+
+    // CJK font rendering functions
+    void drawCJKString(OLEDDisplay *display, int16_t x, int16_t y, const char *text);
+    void drawCJKStringMaxWidth(OLEDDisplay *display, int16_t x, int16_t y, int16_t maxWidth, const char *text);
+    void drawCJKChar(OLEDDisplay *display, int16_t x, int16_t y, uint16_t unicode);
+    uint16_t utf8ToUnicode(const char *text, int &byteCount);
+    bool containsCJKCharacters(const char *text);
+    void resetScrolling();
+#endif
     void onPress() {}
     void setup() {}
     void setOn(bool) {}
@@ -254,6 +268,11 @@ class Screen : public concurrency::OSThread
     // Not thread safe - must be called before any other methods are called.
     void setup();
 
+    bool screenStatus(){
+        // get the current status of screen
+        return screenOn;
+    }
+
     /// Turns the screen on/off. Optionally, pass a custom screensaver frame for E-Ink
     void setOn(bool on, FrameCallback einkScreensaver = NULL);
     /**
@@ -266,6 +285,22 @@ class Screen : public concurrency::OSThread
 
     // Draw north
     float estimatedHeading(double lat, double lon);
+
+#ifdef CJK_ENABLE
+    std::vector<String> textLines;
+    int currentLineStart = 0;
+    unsigned long lastScrollTime = 0;
+
+    // CJK font rendering functions
+    void drawCJKString(OLEDDisplay *display, int16_t x, int16_t y, const char *text);
+    void drawCJKStringf(OLEDDisplay *display, int16_t x, int16_t y, char *buffer, String format, ...);
+    void drawCJKStringMaxWidth(OLEDDisplay *display, int16_t x, int16_t y, int16_t maxWidth, const char *text);
+    void drawCJKChar(OLEDDisplay *display, int16_t x, int16_t y, uint16_t unicode);
+    uint16_t utf8ToUnicode(const char *text, int &byteCount);
+    bool containsCJKCharacters(const char *text);
+    uint16_t getCJKwidth(OLEDDisplay *display, const char *text);
+    void resetScrolling();
+#endif
 
     /// Handle button press, trackball or swipe action)
     void onPress() { enqueueCmd(ScreenCmd{.cmd = Cmd::ON_PRESS}); }
@@ -572,6 +607,7 @@ class Screen : public concurrency::OSThread
     // Handle observer events
     int handleStatusUpdate(const meshtastic::Status *arg);
     int handleUIFrameEvent(const UIFrameEvent *arg);
+    int handleTextMessage(const meshtastic_MeshPacket *packet);
     int handleInputEvent(const InputEvent *arg);
     int handleAdminMessage(AdminModule_ObserverData *arg);
 

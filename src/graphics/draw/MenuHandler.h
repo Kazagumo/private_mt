@@ -25,6 +25,7 @@ class menuHandler
         reset_node_db_menu,
         buzzermodemenupicker,
         mui_picker,
+        reset_to_bl,
         tftcolormenupicker,
         brightness_picker,
         reboot_menu,
@@ -34,6 +35,7 @@ class menuHandler
         test_menu,
         number_test,
         wifi_toggle_menu,
+        file_manager_menu,
         bluetooth_toggle_menu,
         notifications_menu,
         screen_options_menu,
@@ -85,6 +87,7 @@ class menuHandler
     static void numberTest();
     static void wifiBaseMenu();
     static void wifiToggleMenu();
+    static void fileManagerMenu();
     static void notificationsMenu();
     static void screenOptionsMenu();
     static void powerMenu();
@@ -95,6 +98,7 @@ class menuHandler
     static void saveUIConfig();
     static void keyVerificationInitMenu();
     static void keyVerificationFinalPrompt();
+    static void resetToBL();
     static void BluetoothToggleMenu();
 };
 

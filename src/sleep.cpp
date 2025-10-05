@@ -91,8 +91,10 @@ void setCPUFast(bool on)
          * (Added: Dec 23, 2021 by Jm Casler)
          */
 #ifndef CONFIG_IDF_TARGET_ESP32C3
+#ifndef CONFIG_IDF_TARGET_ESP32C6
         LOG_DEBUG("Set CPU to 240MHz because WiFi is in use");
         setCpuFrequencyMhz(240);
+#endif
 #endif
         return;
     }
@@ -553,7 +555,7 @@ void enableLoraInterrupt()
     gpio_pullup_en((gpio_num_t)LORA_CS);
 #endif
 
-#ifdef HELTEC_V4
+#if defined(USE_GC1109_PA)
     gpio_pullup_en((gpio_num_t)LORA_PA_POWER);
     gpio_pullup_en((gpio_num_t)LORA_PA_EN);
     gpio_pulldown_en((gpio_num_t)LORA_PA_TX_EN);

@@ -52,16 +52,28 @@
 #if defined(BATTERY_PIN) && defined(ARCH_ESP32)
 
 #ifndef BAT_MEASURE_ADC_UNIT // ADC1 is default
+#ifndef ESP32C6
 static const adc1_channel_t adc_channel = ADC_CHANNEL;
 static const adc_unit_t unit = ADC_UNIT_1;
+#else
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+#include "esp32-hal-periman.h"
+static adc_channel_t adc_channel;
+#endif
 #else // ADC2
 static const adc2_channel_t adc_channel = ADC_CHANNEL;
 static const adc_unit_t unit = ADC_UNIT_2;
 RTC_NOINIT_ATTR uint64_t RTC_reg_b;
 
 #endif // BAT_MEASURE_ADC_UNIT
-
+#ifndef ESP32C6
 esp_adc_cal_characteristics_t *adc_characs = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+#else
+static adc_oneshot_unit_handle_t adc_unit_handle;
+static adc_cali_handle_t adc_cali_handle;
+#endif
 #ifndef ADC_ATTENUATION
 static const adc_atten_t atten = ADC_ATTEN_DB_12;
 #else
@@ -318,14 +330,20 @@ class AnalogBatteryLevel : public HasBatteryLevel
         if (!initial_read_done || !Throttle::isWithinTimespanMs(last_read_time_ms, min_read_interval)) {
             last_read_time_ms = millis();
 
-            uint32_t raw = 0;
+            int raw = 0;
+            int voltage = 0;
             float scaled = 0;
 
             adcEnable();
 #ifdef ARCH_ESP32 // ADC block for espressif platforms
             raw = espAdcRead();
+#ifndef ESP32C6
             scaled = esp_adc_cal_raw_to_voltage(raw, adc_characs);
-            scaled *= operativeAdcMultiplier;
+#else
+            ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, raw, &voltage));
+            log_e("raw: %d vol: %d",raw,voltage);
+#endif
+            scaled = operativeAdcMultiplier * voltage;
 #else // block for all other platforms
             for (uint32_t i = 0; i < BATTERY_SENSE_SAMPLES; i++) {
                 raw += analogRead(BATTERY_PIN);
@@ -364,6 +382,7 @@ class AnalogBatteryLevel : public HasBatteryLevel
         uint8_t raw_c = 0; // raw reading counter
 
 #ifndef BAT_MEASURE_ADC_UNIT // ADC1
+#ifndef ESP32C6
         for (int i = 0; i < BATTERY_SENSE_SAMPLES; i++) {
             int val_ = adc1_get_raw(adc_channel);
             if (val_ >= 0) { // save only valid readings
@@ -372,6 +391,17 @@ class AnalogBatteryLevel : public HasBatteryLevel
             }
             // delayMicroseconds(100);
         }
+#else
+        for (int i = 0; i < BATTERY_SENSE_SAMPLES; i++) {
+            int val_;
+            esp_err_t res = adc_oneshot_read(adc_unit_handle, adc_channel, &val_);
+            if (val_ >= 0 && res == ESP_OK) { // save only valid readings
+                raw += val_;
+                raw_c++;
+            }
+            // delayMicroseconds(100);
+        }
+#endif
 #else                            // ADC2
 #ifdef CONFIG_IDF_TARGET_ESP32S3 // ESP32S3
         // ADC2 wifi bug workaround not required, breaks compile
@@ -614,7 +644,7 @@ bool Power::analogInit()
 #endif
 
 #ifdef ARCH_ESP32 // ESP32 needs special analog stuff
-
+#ifndef ESP32C6
 #ifndef ADC_WIDTH // max resolution by default
     static const adc_bits_width_t width = ADC_WIDTH_BIT_12;
 #else
@@ -648,6 +678,34 @@ bool Power::analogInit()
     else {
         LOG_INFO("ADC config based on default reference voltage");
     }
+#else
+#ifndef ADC_CHANNEL
+    adc_unit_t adc_unit;
+    esp_err_t res = adc_oneshot_io_to_channel(BATTERY_PIN, &adc_unit, &adc_channel);
+#endif
+    adc_oneshot_unit_init_cfg_t init_config1 = {
+        .unit_id = adc_unit,
+        .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
+
+    adc_oneshot_chan_cfg_t config = {
+        .atten = atten,
+        .bitwidth = ADC_BITWIDTH_12,
+    };
+
+    perimanSetPinBus(BATTERY_PIN,ESP32_BUS_TYPE_ADC_ONESHOT, (void *)(adc_unit + 1), adc_unit, adc_channel);
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc_unit_handle));
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_unit_handle, adc_channel, &config));
+
+    adc_cali_curve_fitting_config_t cali_config = {
+        .unit_id = adc_unit,
+        .chan = adc_channel,
+        .atten = atten,
+        .bitwidth = ADC_BITWIDTH_12,
+    };
+    ESP_ERROR_CHECK(adc_cali_create_scheme_curve_fitting(&cali_config, &adc_cali_handle));
+
+#endif
 #endif // ARCH_ESP32
 
 #ifdef ARCH_NRF52
@@ -718,6 +776,9 @@ void Power::reboot()
 #if defined(ARCH_ESP32)
     ESP.restart();
 #elif defined(ARCH_NRF52)
+    if(nrf52_GPREGRET != 0x00){
+        NRF_POWER->GPREGRET = nrf52_GPREGRET; // some device will reboot after GPREGRET was set.
+    }
     NVIC_SystemReset();
 #elif defined(ARCH_RP2040)
     rp2040.reboot();
@@ -894,13 +955,17 @@ void Power::readPowerStatus()
         if (batteryLevel->getBattVoltage() < OCV[NUM_OCV_POINTS - 1]) {
             low_voltage_counter++;
             LOG_DEBUG("Low voltage counter: %d/10", low_voltage_counter);
-            if (low_voltage_counter > 10) {
+            if (low_voltage_counter > 5) {
 #ifdef ARCH_NRF52
                 // We can't trigger deep sleep on NRF52, it's freezing the board
                 LOG_DEBUG("Low voltage detected, but not trigger deep sleep");
 #else
                 LOG_INFO("Low voltage detected, trigger deep sleep");
                 powerFSM.trigger(EVENT_LOW_BATTERY);
+#endif
+#ifdef GAT562_MESH_WATCH
+                LOG_DEBUG("Powering off...");
+                shutdownAtMsec = millis();
 #endif
             }
         } else {

@@ -6,7 +6,13 @@
 
 enum RotaryEncoderInterruptBaseStateType { ROTARY_EVENT_OCCURRED, ROTARY_EVENT_CLEARED };
 
-enum RotaryEncoderInterruptBaseActionType { ROTARY_ACTION_NONE, ROTARY_ACTION_PRESSED, ROTARY_ACTION_CW, ROTARY_ACTION_CCW };
+enum RotaryEncoderInterruptBaseActionType {
+    ROTARY_ACTION_NONE,
+    ROTARY_ACTION_PRESSED,
+    ROTARY_ACTION_PRESSED_LONG,
+    ROTARY_ACTION_CW,
+    ROTARY_ACTION_CCW
+};
 
 class RotaryEncoderInterruptBase : public Observable<const InputEvent *>, public concurrency::OSThread
 {
@@ -48,7 +54,8 @@ class RotaryEncoderInterruptBase : public Observable<const InputEvent *>, public
     bool pressDetected = false;
     uint32_t lastPressLongEventTime = 0;
     unsigned long lastPressKeyTime = 0;
-    static const uint32_t LONG_PRESS_DURATION = 300;      // ms
-    static const uint32_t LONG_PRESS_REPEAT_INTERVAL = 0; // 0 = single-shot for rotary select
+    // Long press detection for press button
+    static const uint32_t LONG_PRESS_DURATION = 300;        // ms
+    static const uint32_t LONG_PRESS_REPEAT_INTERVAL = 0; // ms - interval between repeated long press events
     const unsigned long pressDebounceMs = 200;            // ms
 };
