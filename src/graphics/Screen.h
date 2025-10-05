@@ -268,7 +268,8 @@ class Screen : public concurrency::OSThread
     // Not thread safe - must be called before any other methods are called.
     void setup();
 
-    bool screenStatus(){
+    bool screenStatus()
+    {
         // get the current status of screen
         return screenOn;
     }
@@ -623,6 +624,8 @@ class Screen : public concurrency::OSThread
     // Menu-driven Show / Hide Toggle
     void toggleFrameVisibility(const std::string &frameName);
     bool isFrameHidden(const std::string &frameName) const;
+
+    bool isTextFrame();
 
 #ifdef USE_EINK
     /// Draw an image to remain on E-Ink display after screen off

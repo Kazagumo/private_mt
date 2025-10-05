@@ -776,18 +776,18 @@ int32_t Screen::runOnce()
     }
 #endif
     if (!NotificationRenderer::isOverlayBannerShowing() && rebootAtMsec != 0) {
-        #ifdef ARCH_NRF52
+#ifdef ARCH_NRF52
         switch (nrf52_GPREGRET) {
-            case 0x00:
-                showSimpleBanner("Rebooting...", 0);
-                break;
-            case 0x57:
-                showSimpleBanner("Bootloader mode\nPower cycle to exit.", 0);
-                break;
+        case 0x00:
+            showSimpleBanner("Rebooting...", 0);
+            break;
+        case 0x57:
+            showSimpleBanner("Bootloader mode\nPower cycle to exit.", 0);
+            break;
         };
-        #else
+#else
         showSimpleBanner("Rebooting...", 0);
-        #endif
+#endif
     }
 
     // Process incoming commands.
@@ -1639,26 +1639,29 @@ int Screen::handleInputEvent(const InputEvent *event)
         if (!inputIntercepted) {
             if (this->ui->getUiState()->currentFrame == framesetInfo.positions.textMessage) {
                 MessageRenderer::handleManualScroll(event->inputEvent);
+                setFastFramerate();
+            } else {
+                isManualScroll = false;
             }
-            #ifdef GAT562_MESH_TRACKER_PRO
+#ifdef GAT562_MESH_TRACKER_PRO
             if (event->inputEvent == INPUT_BROKER_USER_PRESS) {
-                if (screen->screenStatus()){
+                if (screen->screenStatus()) {
                     setOn(false);
                 } else {
                     setOn(true);
                 }
             } else
-            #endif
-            #ifdef GAT562_MESH_WATCH
-            if (event->inputEvent == INPUT_BROKER_ALT_PRESS) {
-                if (screen->screenStatus()){
+#endif
+#ifdef GAT562_MESH_WATCH
+                if (event->inputEvent == INPUT_BROKER_ALT_PRESS) {
+                if (screen->screenStatus()) {
                     setOn(false);
                 } else {
                     setOn(true);
                 }
-            } else 
-            #endif
-            if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
+            } else
+#endif
+                if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
                 showPrevFrame();
             } else if (event->inputEvent == INPUT_BROKER_RIGHT || event->inputEvent == INPUT_BROKER_USER_PRESS) {
                 showNextFrame();
@@ -1729,6 +1732,11 @@ int Screen::handleAdminMessage(AdminModule_ObserverData *arg)
 bool Screen::isOverlayBannerShowing()
 {
     return NotificationRenderer::isOverlayBannerShowing();
+}
+
+bool Screen::isTextFrame()
+{
+    return this->ui->getUiState()->currentFrame == framesetInfo.positions.textMessage;
 }
 
 #ifdef CJK_ENABLE

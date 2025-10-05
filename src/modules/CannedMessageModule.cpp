@@ -360,7 +360,7 @@ bool CannedMessageModule::isCharInputAllowed() const
 int CannedMessageModule::handleInputEvent(const InputEvent *event)
 {
     // Block ALL input if at message screen
-    if (inMessage){
+    if (screen->isTextFrame()) {
         return 0;
     }
     // Block ALL input if an alert banner is active
@@ -369,7 +369,7 @@ int CannedMessageModule::handleInputEvent(const InputEvent *event)
     }
 
     // Block ALL input and exit ack_nack screen when got any input
-    if (event->inputEvent != INPUT_BROKER_NONE && this->runState == CANNED_MESSAGE_RUN_STATE_ACK_NACK_RECEIVED ) {
+    if (event->inputEvent != INPUT_BROKER_NONE && this->runState == CANNED_MESSAGE_RUN_STATE_ACK_NACK_RECEIVED) {
         this->runState = CANNED_MESSAGE_RUN_STATE_INACTIVE;
         return 0;
     }
@@ -423,14 +423,14 @@ int CannedMessageModule::handleInputEvent(const InputEvent *event)
         if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_RIGHT) {
             break;
         }
-        // Handle UP/DOWN: activate canned message list!
-        #ifndef GAT562_MESH_TRIAL_TRACKER
+// Handle UP/DOWN: activate canned message list!
+#ifndef GAT562_MESH_TRIAL_TRACKER
         if (event->inputEvent == INPUT_BROKER_UP || event->inputEvent == INPUT_BROKER_DOWN ||
             event->inputEvent == INPUT_BROKER_ALT_LONG || event->inputEvent == INPUT_BROKER_USER_PRESS) {
-        #else
+#else
         if (event->inputEvent == INPUT_BROKER_UP || event->inputEvent == INPUT_BROKER_DOWN ||
             event->inputEvent == INPUT_BROKER_ALT_LONG) {
-        #endif
+#endif
             LaunchWithDestination(NODENUM_BROADCAST);
             return 1;
         }
@@ -1163,7 +1163,6 @@ void CannedMessageModule::sendTextSlient(NodeNum dest, ChannelIndex channel, con
     sm.ackStatus = AckStatus::NONE;
 
     messageStore.addLiveMessage(sm);
-
 }
 
 int32_t CannedMessageModule::runOnce()

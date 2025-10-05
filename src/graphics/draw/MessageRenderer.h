@@ -3,11 +3,12 @@
 #include "OLEDDisplay.h"
 #include "OLEDDisplayUi.h"
 #include "graphics/emotes.h"
+#include "input/InputBroker.h"
 #include "mesh/generated/meshtastic/mesh.pb.h" // for meshtastic_MeshPacket
 #include <string>
 #include <vector>
 
-extern bool inMessage;
+extern bool isManualScroll;
 
 namespace graphics
 {
@@ -38,7 +39,7 @@ void clearThreadRegistries();
 // Text and emote rendering
 void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string &line, const Emote *emotes, int emoteCount);
 
-void handleManualScroll(input_broker_event event);
+void handleManualScroll(input_broker_event inevent);
 
 /// Draws the text message frame for displaying received messages
 void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y);

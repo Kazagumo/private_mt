@@ -785,7 +785,7 @@ void menuHandler::textMessageBaseMenu()
 
 void menuHandler::systemBaseMenu()
 {
-    enum optionsNumbers { Back, Notifications, ScreenOptions, Bluetooth, PowerMenu, FrameToggles, Test, enumEnd };
+    enum optionsNumbers { Back, Notifications, ScreenOptions, Bluetooth, wifi, PowerMenu, FrameToggles, Test, enumEnd };
     static const char *optionsArray[enumEnd] = {"Back"};
     static int optionsEnumArray[enumEnd] = {Back};
     int options = 1;
@@ -806,6 +806,12 @@ void menuHandler::systemBaseMenu()
     optionsArray[options] = "Bluetooth Toggle";
 #endif
     optionsEnumArray[options++] = Bluetooth;
+#if defined(M5STACK_UNITC6L)
+    optionsArray[options] = "wifi";
+#else
+    optionsArray[options] = "WiFi Toggle";
+#endif
+    optionsEnumArray[options++] = wifi;
 #if defined(M5STACK_UNITC6L)
     optionsArray[options] = "Power";
 #else
@@ -845,6 +851,9 @@ void menuHandler::systemBaseMenu()
             screen->runNow();
         } else if (selected == Bluetooth) {
             menuQueue = bluetooth_toggle_menu;
+            screen->runNow();
+        } else if (selected == wifi) {
+            menuQueue = wifi_toggle_menu;
             screen->runNow();
         } else if (selected == Back && !test_enabled) {
             test_count++;
@@ -1215,8 +1224,8 @@ void menuHandler::switchToMUIMenu()
 
 void menuHandler::TFTColorPickerMenu(OLEDDisplay *display)
 {
-    static const char *optionsArray[] = {"Back", "Default", "Green", "Yellow", "Red", "Orange", "Purple", "Teal",
-                                         "Pink", "White"};
+    static const char *optionsArray[] = {"Back",   "Default", "Green", "Yellow", "Red",
+                                         "Orange", "Purple",  "Teal",  "Pink",   "White"};
     BannerOverlayOptions bannerOptions;
     bannerOptions.message = "Select Screen Color";
     bannerOptions.optionsArrayPtr = optionsArray;
@@ -1445,7 +1454,7 @@ void menuHandler::numberTest()
 
 void menuHandler::wifiBaseMenu()
 {
-    enum optionsNumbers { Back, Wifi_toggle ,file_manager };
+    enum optionsNumbers { Back, Wifi_toggle, file_manager };
 
     static const char *optionsArray[] = {"Back", "WiFi Toggle", "File Manager"};
     BannerOverlayOptions bannerOptions;
@@ -1467,41 +1476,40 @@ void menuHandler::wifiBaseMenu()
 void menuHandler::wifiToggleMenu()
 {
     enum optionsNumbers { Back, Wifi_toggle };
-    if (config.network.wifi_enabled == true)
-    {
-    static const char *optionsArray[] = {"Back", "Disable"};
-    BannerOverlayOptions bannerOptions;
-    bannerOptions.message = "Disable Wifi and\nEnable Bluetooth?";
-    bannerOptions.optionsArrayPtr = optionsArray;
-    bannerOptions.optionsCount = 2;
-    bannerOptions.bannerCallback = [](int selected) -> void {
-        if (selected == Wifi_toggle) {
-            config.network.wifi_enabled = false;
-            config.bluetooth.enabled = true;
-            moduleConfig.mqtt.proxy_to_client_enabled = true;
-            service->reloadConfig(SEGMENT_CONFIG);
-            service->reloadConfig(SEGMENT_MODULECONFIG);
-            rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
-        }
-    };
-    screen->showOverlayBanner(bannerOptions);
+    if (config.network.wifi_enabled == true) {
+        static const char *optionsArray[] = {"Back", "Disable"};
+        BannerOverlayOptions bannerOptions;
+        bannerOptions.message = "Disable Wifi and\nEnable Bluetooth?";
+        bannerOptions.optionsArrayPtr = optionsArray;
+        bannerOptions.optionsCount = 2;
+        bannerOptions.bannerCallback = [](int selected) -> void {
+            if (selected == Wifi_toggle) {
+                config.network.wifi_enabled = false;
+                config.bluetooth.enabled = true;
+                moduleConfig.mqtt.proxy_to_client_enabled = true;
+                service->reloadConfig(SEGMENT_CONFIG);
+                service->reloadConfig(SEGMENT_MODULECONFIG);
+                rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
+            }
+        };
+        screen->showOverlayBanner(bannerOptions);
     } else {
-    static const char *optionsArray[] = {"Back", "Disable"};
-    BannerOverlayOptions bannerOptions;
-    bannerOptions.message = "Disable Bluetooth and\nEnable Wifi?";
-    bannerOptions.optionsArrayPtr = optionsArray;
-    bannerOptions.optionsCount = 2;
-    bannerOptions.bannerCallback = [](int selected) -> void {
-        if (selected == Wifi_toggle) {
-            config.network.wifi_enabled = false;
-            config.bluetooth.enabled = true;
-            moduleConfig.mqtt.proxy_to_client_enabled = true;
-            service->reloadConfig(SEGMENT_CONFIG);
-            service->reloadConfig(SEGMENT_MODULECONFIG);
-            rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
-        }
-    };
-    screen->showOverlayBanner(bannerOptions);
+        static const char *optionsArray[] = {"Back", "Disable"};
+        BannerOverlayOptions bannerOptions;
+        bannerOptions.message = "Disable Bluetooth and\nEnable Wifi?";
+        bannerOptions.optionsArrayPtr = optionsArray;
+        bannerOptions.optionsCount = 2;
+        bannerOptions.bannerCallback = [](int selected) -> void {
+            if (selected == Wifi_toggle) {
+                config.network.wifi_enabled = false;
+                config.bluetooth.enabled = true;
+                moduleConfig.mqtt.proxy_to_client_enabled = true;
+                service->reloadConfig(SEGMENT_CONFIG);
+                service->reloadConfig(SEGMENT_MODULECONFIG);
+                rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
+            }
+        };
+        screen->showOverlayBanner(bannerOptions);
     }
 }
 
@@ -1519,7 +1527,7 @@ void menuHandler::fileManagerMenu()
     bannerOptions.optionsCount = 2;
     bannerOptions.bannerCallback = [](int selected) -> void {
         if (selected == toggle) {
-            if (luaScriptModule->isRunning()){
+            if (luaScriptModule->isRunning()) {
                 luaScriptModule->stopFileServer();
             } else {
                 luaScriptModule->startFileServer();
@@ -1646,11 +1654,11 @@ void menuHandler::powerMenu()
         } else if (selected == MUI) {
             menuHandler::menuQueue = menuHandler::mui_picker;
             screen->runNow();
-        #ifdef ARCH_NRF52
+#ifdef ARCH_NRF52
         } else if (selected == Bootloader) {
             menuHandler::menuQueue = menuHandler::reset_to_bl;
             screen->runNow();
-        #endif
+#endif
         } else {
             menuQueue = system_base_menu;
             screen->runNow();

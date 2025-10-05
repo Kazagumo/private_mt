@@ -23,7 +23,7 @@ extern bool hasUnreadMessage;
 extern meshtastic_DeviceState devicestate;
 extern graphics::Screen *screen;
 
-bool inMessage;
+bool isManualScroll = false;
 
 using graphics::Emote;
 using graphics::emotes;
@@ -36,7 +36,6 @@ namespace MessageRenderer
 
 static std::vector<std::string> cachedLines;
 static std::vector<int> cachedHeights;
-bool isManualScroll;
 input_broker_event event;
 
 void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string &line, const Emote *emotes, int emoteCount)
@@ -332,7 +331,6 @@ void drawRelayMark(OLEDDisplay *display, int x, int y, int size = 8)
 void handleManualScroll(input_broker_event inevent)
 {
     event = inevent;
-    inMessage = true;
 }
 
 void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
@@ -555,19 +553,14 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         break;
     case INPUT_BROKER_DOWN:
         isManualScroll = true;
-        scrollY = scrollY + 14 > totalHeight ? totalHeight : scrollY + 14;
+        scrollY = scrollY + 14 > totalHeight - 30 ? totalHeight - 30 : scrollY + 14;
         break;
-    case INPUT_BROKER_LEFT:
-        isManualScroll = false;
-        inMessage = false;
-        break;
-    case INPUT_BROKER_RIGHT:
-        isManualScroll = false;
-        inMessage = false;
+    default:
         break;
     }
+    event = INPUT_BROKER_NONE;
 
-    if (isManualScroll) {
+    if (!isManualScroll) {
 
         float delta = (now - lastTime) / 400.0f;
         lastTime = now;
@@ -772,7 +765,6 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
         }
 
         rowHeights.push_back(lineHeight);
-        LOG_INFO("height: %d", lineHeight);
     }
 
     return rowHeights;
