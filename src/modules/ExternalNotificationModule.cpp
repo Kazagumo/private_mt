@@ -54,7 +54,7 @@ union senderHex {
     uint32_t hex;
     uint8_t rgb[4];
 };
-senderHex senderhex = {0} ;
+senderHex senderhex = {0};
 bool ascending = true;
 #endif
 
@@ -145,12 +145,12 @@ int32_t ExternalNotificationModule::runOnce()
                 setExternalState(2, !getExternal(2));
             }
 #if defined(HAS_RGB_LED)
-        /*
-            red = (colorState & 4) ? brightnessValues[brightnessIndex] : 0;          // Red enabled on colorState = 4,5,6,7
-            green = (colorState & 2) ? brightnessValues[brightnessIndex] : 0;        // Green enabled on colorState = 2,3,6,7
-            blue = (colorState & 1) ? (brightnessValues[brightnessIndex] * 1.5) : 0; // Blue enabled on colorState = 1,3,5,7
-            white = (colorState & 12) ? brightnessValues[brightnessIndex] : 0;
-        */
+            /*
+                red = (colorState & 4) ? brightnessValues[brightnessIndex] : 0;          // Red enabled on colorState = 4,5,6,7
+                green = (colorState & 2) ? brightnessValues[brightnessIndex] : 0;        // Green enabled on colorState = 2,3,6,7
+                blue = (colorState & 1) ? (brightnessValues[brightnessIndex] * 1.5) : 0; // Blue enabled on colorState = 1,3,5,7
+                white = (colorState & 12) ? brightnessValues[brightnessIndex] : 0;
+            */
             red = senderhex.rgb[2];
             green = senderhex.rgb[1];
             blue = senderhex.rgb[0];
@@ -177,10 +177,11 @@ int32_t ExternalNotificationModule::runOnce()
             pixels.setBrightness(brightnessIndex);
             pixels.fill(pixels.Color(red, green, blue), 0, NEOPIXEL_COUNT);
             pixels.show();
+            delay = EXT_NOTIFICATION_FAST_THREAD_MS
 #endif
 #ifdef UNPHONE
-            unphone.rgb(red, green, blue);
-#endif      
+                        unphone.rgb(red, green, blue);
+#endif
             /*
             if (ascending) { // fade in
                 brightnessIndex++;
@@ -200,7 +201,7 @@ int32_t ExternalNotificationModule::runOnce()
             */
             if (ascending) { // fade in
                 brightnessIndex++;
-                if (brightnessIndex == max(moduleConfig.ambient_lighting.current * 2,31)) {
+                if (brightnessIndex == max(moduleConfig.ambient_lighting.current * 2, 31)) {
                     ascending = false;
                 }
             } else {
