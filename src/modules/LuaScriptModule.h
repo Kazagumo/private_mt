@@ -29,6 +29,7 @@ class LuaScriptModule : public SinglePortModule, private concurrency::OSThread
   protected:
   private:
     FileServerState fileServerState = FILESERVER_DISABLED;
+    void setFunctions();
     virtual int32_t runOnce() override;
     virtual ProcessMessage handleReceived(const meshtastic_MeshPacket &mp) override;
     bool isReady = false;

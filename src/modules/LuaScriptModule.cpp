@@ -7,6 +7,7 @@
 #include "serialization/MeshPacketSerializer.h"
 #include <ESPFMfGK.h>
 #include <FSCommon.h>
+#include <NonBlockingRtttl.h>
 #include <sol/sol.hpp>
 
 sol::state lua;
@@ -134,20 +135,7 @@ LuaScriptModule::LuaScriptModule()
         ;
         LOG_INFO("lua script detected.executing");
         lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::package, sol::lib::os);
-        lua.set_function("millis", millis);
-        lua.set_function("print", [](const char *info) { LOG_INFO("[LuaEngine] %s", info); });
-        lua.set_function("sendText", [](NodeNum dest, ChannelIndex channel, const char *message, bool wantReplies) {
-            cannedMessageModule->sendTextSlient(dest, channel, message, wantReplies);
-        });
-        lua.set_function("getNodeId", []() { return nodeDB->getNodeNum(); });
-        lua.set_function("getlongname", [](uint32_t node) {
-            return nodeDB->getMeshNode(node) == nullptr ? "?" : nodeDB->getMeshNode(node)->user.long_name;
-        });
-        lua.set_function("getshortname", [](uint32_t node) {
-            return nodeDB->getMeshNode(node) == nullptr ? "?" : nodeDB->getMeshNode(node)->user.short_name;
-        });
-        lua.set_function("showsimplebanner",
-                         [](const char *content, uint32_t duration) { screen->showSimpleBanner(content, duration); });
+        setFunctions();
         if (!FSCom.exists("/exit_without_clean")) {
             FSCom.mkdir("/exit_without_clean");
             auto result = lua.safe_script_file("/littlefs/lua/main.lua");
@@ -160,6 +148,26 @@ LuaScriptModule::LuaScriptModule()
         }
         FSCom.rmdir("/exit_without_clean");
     }
+}
+
+void LuaScriptModule::setFunctions()
+{
+    lua.set_function("millis", millis);
+    lua.set_function("print", [](const char *info) { LOG_INFO("[LuaEngine] %s", info); });
+    lua.set_function("sendText", [](NodeNum dest, ChannelIndex channel, const char *message, bool wantReplies) {
+        cannedMessageModule->sendTextSlient(dest, channel, message, wantReplies);
+    });
+    lua.set_function("getNodeId", []() { return nodeDB->getNodeNum(); });
+    lua.set_function("getlongname", [](uint32_t node) {
+        return nodeDB->getMeshNode(node) == nullptr ? "?" : nodeDB->getMeshNode(node)->user.long_name;
+    });
+    lua.set_function("getshortname", [](uint32_t node) {
+        return nodeDB->getMeshNode(node) == nullptr ? "?" : nodeDB->getMeshNode(node)->user.short_name;
+    });
+    lua.set_function("showsimplebanner", [](const char *content, uint32_t duration) {
+        screen->setOn(true);
+        screen->showSimpleBanner(content, duration);
+    });
 }
 
 void LuaScriptModule::startFileServer()
