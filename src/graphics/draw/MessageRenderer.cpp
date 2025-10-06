@@ -403,9 +403,9 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     case ThreadMode::DIRECT: {
         meshtastic_NodeInfoLite *node = nodeDB->getMeshNode(currentPeer);
         if (node && node->has_user) {
-            snprintf(titleBuf, sizeof(titleBuf), "DM: %s", node->user.short_name);
+            snprintf(titleBuf, sizeof(titleBuf), "@%s", node->user.short_name);
         } else {
-            snprintf(titleBuf, sizeof(titleBuf), "DM: %08x", currentPeer);
+            snprintf(titleBuf, sizeof(titleBuf), "@%08x", currentPeer);
         }
         titleStr = titleBuf;
         break;
@@ -513,7 +513,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         // Final header line
         char headerStr[96];
         if (mine) {
-            snprintf(headerStr, sizeof(headerStr), "me %s %s", timeBuf, chanType);
+            snprintf(headerStr, sizeof(headerStr), "%s %s", timeBuf, chanType);
         } else {
             snprintf(headerStr, sizeof(headerStr), "%s @%s %s", timeBuf, sender, chanType);
         }
@@ -539,7 +539,6 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     cachedHeights = calculateLineHeights(cachedLines, emotes);
 
     // Scrolling logic (unchanged)
-    uint32_t now = millis();
     int totalHeight = 0;
     for (size_t i = 0; i < cachedHeights.size(); ++i)
         totalHeight += cachedHeights[i];
@@ -559,6 +558,11 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         break;
     }
     event = INPUT_BROKER_NONE;
+#ifndef USE_EINK
+    uint32_t now = millis();
+    float delta = (now - lastTime) / 400.0f;
+    lastTime = now;
+    const float scrollSpeed = 2.0f;
 
     if (!isManualScroll) {
 
@@ -591,6 +595,13 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
             scrollY = 0;
         }
     }
+#else
+    // E-Ink: disable autoscroll
+    scrollY = 0.0f;
+    waitingToReset = false;
+    scrollStarted = false;
+    lastTime = millis(); // keep timebase sane
+#endif
 
     int scrollOffset = static_cast<int>(scrollY);
     int yOffset = -scrollOffset + getTextPositions(display)[1];
@@ -844,6 +855,39 @@ void handleNewMessage(const StoredMessage &sm, const meshtastic_MeshPacket &pack
 #endif
             } else
                 strcpy(banner, "New Message");
+        }
+
+        // Append context (which channel or DM) so the banner shows where the message arrived
+        {
+            char contextBuf[64] = "";
+            if (sm.type == MessageType::BROADCAST) {
+                const char *cname = channels.getName(sm.channelIndex);
+                if (cname && cname[0])
+                    snprintf(contextBuf, sizeof(contextBuf), "in #%s", cname);
+                else
+                    snprintf(contextBuf, sizeof(contextBuf), "in Ch%d", sm.channelIndex);
+            } else if (sm.type == MessageType::DM_TO_US) {
+                /* Commenting out to better understand if we need this info in the banner
+                uint32_t peer = (packet.from == 0) ? sm.dest : sm.sender;
+                const meshtastic_NodeInfoLite *peerNode = nodeDB->getMeshNode(peer);
+                if (peerNode && peerNode->has_user && peerNode->user.short_name)
+                    snprintf(contextBuf, sizeof(contextBuf), "Direct: @%s", peerNode->user.short_name);
+                else
+                    snprintf(contextBuf, sizeof(contextBuf), "Direct Message");
+                */
+            }
+
+            if (contextBuf[0]) {
+                size_t cur = strlen(banner);
+                if (cur + 1 < sizeof(banner)) {
+                    if (cur > 0 && banner[cur - 1] != '\n') {
+                        banner[cur] = '\n';
+                        banner[cur + 1] = '\0';
+                        cur++;
+                    }
+                    strncat(banner, contextBuf, sizeof(banner) - cur - 1);
+                }
+            }
         }
 
         // Shorter banner if already in a conversation (Channel or Direct)
