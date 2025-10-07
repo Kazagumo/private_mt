@@ -1,6 +1,6 @@
 #include "configuration.h"
-#if HAS_SCREEN
 
+#if HAS_SCREEN
 #include "DisplayFormatters.h"
 #include "NodeDB.h"
 #include "NotificationRenderer.h"
@@ -668,6 +668,7 @@ void NotificationRenderer::drawNotificationBox(OLEDDisplay *display, OLEDDisplay
         boxWidth += (isHighResolution) ? 4 : 2;
     }
     int16_t boxTop = (display->height() / 2) - (boxHeight / 2);
+    boxHeight += (isHighResolution) ? 2 : 1;
 
     // === Draw Box ===
     display->setColor(BLACK);
