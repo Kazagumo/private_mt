@@ -65,10 +65,8 @@ extern "C" {
  */
 
 #if defined(GAT562_MESH_TRACKER_PRO)
-#define CANCEL_BUTTON_PIN 9
+#define BUTTON_PIN 9
 #define BUTTON_NEED_PULLUP
-#define CANCEL_BUTTON_ACTIVE_LOW true
-#define CANCEL_BUTTON_ACTIVE_PULLUP false
 #else
 #define PIN_BUTTON1 9
 #define BUTTON_NEED_PULLUP
