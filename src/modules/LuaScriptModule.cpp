@@ -134,13 +134,13 @@ LuaScriptModule::LuaScriptModule()
     if (FSCom.exists("/lua/main.lua")) {
         ;
         LOG_INFO("lua script detected.executing");
-        lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::package, sol::lib::os);
+        lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::package, sol::lib::os, sol::lib::io);
         setFunctions();
         if (!FSCom.exists("/exit_without_clean")) {
             FSCom.mkdir("/exit_without_clean");
             auto result = lua.safe_script_file("/littlefs/lua/main.lua");
             // fuck,we need to add the full path to the file.
-            if (!result.valid()) {
+            if (unlikely(!result.valid())) {
                 sol::error err = result;
                 LOG_ERROR(err.what());
             }

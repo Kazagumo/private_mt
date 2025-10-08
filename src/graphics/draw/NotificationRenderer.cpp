@@ -9,8 +9,6 @@
 #include "graphics/images.h"
 #include "input/RotaryEncoderInterruptImpl1.h"
 #include "input/UpDownInterruptImpl1.h"
-#include "input/RotaryEncoderInterruptImpl1.h"
-#include "input/UpDownInterruptImpl1.h"
 #if HAS_BUTTON
 #include "input/ButtonThread.h"
 #endif
@@ -92,7 +90,7 @@ void NotificationRenderer::drawSSLScreen(OLEDDisplay *display, OLEDDisplayUiStat
 }
 
 void NotificationRenderer::resetBanner()
-{   
+{
     notificationTypeEnum previousType = current_notification_type;
 
     alertBannerMessage[0] = '\0';
@@ -116,7 +114,6 @@ void NotificationRenderer::resetBanner()
     currentNumber = 0;
 
     nodeDB->pause_sort(false);
-
 
     // If we're exiting from text_input (virtual keyboard), trigger frame update
     // to ensure any messages received during keyboard use are now displayed
@@ -820,9 +817,11 @@ void NotificationRenderer::drawTextInput(OLEDDisplay *display, OLEDDisplayUiStat
                 virtualKeyboard->moveCursorDown();
             } else if (inEvent.inputEvent == INPUT_BROKER_ALT_PRESS) {
                 virtualKeyboard->moveCursorUp();
+#ifndef GAT562_MESH_WATCH
             } else if (inEvent.inputEvent == INPUT_BROKER_USER_PRESS) {
-                //virtualKeyboard->moveCursorDown();
+                // virtualKeyboard->moveCursorDown();
                 virtualKeyboard->toggleIME();
+#endif
             } else if (inEvent.inputEvent == INPUT_BROKER_SELECT) {
                 virtualKeyboard->handlePress();
             } else if (inEvent.inputEvent == INPUT_BROKER_SELECT_LONG) {
@@ -866,7 +865,7 @@ bool NotificationRenderer::isOverlayBannerShowing()
     return strlen(alertBannerMessage) > 0 && (alertBannerUntil == 0 || millis() <= alertBannerUntil);
 }
 
- void NotificationRenderer::showKeyboardMessagePopupWithTitle(const char *title, const char *content, uint32_t durationMs)
+void NotificationRenderer::showKeyboardMessagePopupWithTitle(const char *title, const char *content, uint32_t durationMs)
 {
     if (!title || !content || current_notification_type != notificationTypeEnum::text_input) {
         return;
@@ -951,8 +950,7 @@ void NotificationRenderer::drawKeyboardMessagePopup(OLEDDisplay *display)
                 } else {
                     // Single word longer than available width: hard cut down to fit
                     currentLine = word;
-                    while (currentLine.size() > 1 &&
-                           screen->getCJKwidth(display, currentLine.c_str()) > availableWidth) {
+                    while (currentLine.size() > 1 && screen->getCJKwidth(display, currentLine.c_str()) > availableWidth) {
                         currentLine.pop_back();
                     }
                 }
@@ -1108,8 +1106,7 @@ void NotificationRenderer::drawInvertedNotificationBox(OLEDDisplay *display, OLE
             display->fillRect(boxLeft + 1, boxTop + 1, boxWidth - 2, effectiveLineHeight - background_yOffset);
             display->setColor(BLACK);
             int yOffset = 3;
-            if(screen->containsCJKCharacters(lineBuffer))
-            {
+            if (screen->containsCJKCharacters(lineBuffer)) {
                 screen->drawCJKString(display, textX, lineY - yOffset, lineBuffer);
             } else {
                 display->drawString(textX, lineY - yOffset, lineBuffer);
@@ -1118,8 +1115,7 @@ void NotificationRenderer::drawInvertedNotificationBox(OLEDDisplay *display, OLE
             lineY += (effectiveLineHeight - 2 - background_yOffset);
         } else {
             // Content lines - white text on black background
-            if(screen->containsCJKCharacters(lineBuffer))
-            {
+            if (screen->containsCJKCharacters(lineBuffer)) {
                 screen->drawCJKString(display, textX, lineY, lineBuffer);
             } else {
                 display->drawString(textX, lineY, lineBuffer);
@@ -1145,7 +1141,6 @@ void NotificationRenderer::drawInvertedNotificationBox(OLEDDisplay *display, OLE
         display->fillRect(scrollBarX + 1, indicatorY, scrollBarWidth - 2, indicatorHeight);
     }
 }
-
 
 } // namespace graphics
 #endif

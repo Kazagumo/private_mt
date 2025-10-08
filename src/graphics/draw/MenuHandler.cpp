@@ -1,4 +1,5 @@
 #include "configuration.h"
+#include "mesh/Default.h"
 #if HAS_SCREEN
 #include "ClockRenderer.h"
 #include "GPS.h"
@@ -806,12 +807,14 @@ void menuHandler::systemBaseMenu()
     optionsArray[options] = "Bluetooth Toggle";
 #endif
     optionsEnumArray[options++] = Bluetooth;
+#ifdef ARCH_ESP32
 #if defined(M5STACK_UNITC6L)
     optionsArray[options] = "wifi";
 #else
     optionsArray[options] = "WiFi Toggle";
 #endif
     optionsEnumArray[options++] = wifi;
+#endif
 #if defined(M5STACK_UNITC6L)
     optionsArray[options] = "Power";
 #else
@@ -1512,7 +1515,7 @@ void menuHandler::wifiToggleMenu()
         screen->showOverlayBanner(bannerOptions);
     }
 }
-
+#ifdef ARCH_ESP32
 void menuHandler::fileManagerMenu()
 {
     enum optionsNumbers { Back, toggle };
@@ -1536,6 +1539,7 @@ void menuHandler::fileManagerMenu()
     };
     screen->showOverlayBanner(bannerOptions);
 }
+#endif
 
 void menuHandler::notificationsMenu()
 {
@@ -1891,11 +1895,11 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
     case mui_picker:
         switchToMUIMenu();
         break;
-#ifdef ARCH_NRF52
     case reset_to_bl:
+#ifdef ARCH_NRF52
         resetToBL();
-        break;
 #endif
+        break;
     case tftcolormenupicker:
         TFTColorPickerMenu(display);
         break;
@@ -1927,7 +1931,9 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
         wifiToggleMenu();
         break;
     case file_manager_menu:
+#ifdef ARCH_ESP32
         fileManagerMenu();
+#endif
         break;
     case key_verification_init:
         keyVerificationInitMenu();

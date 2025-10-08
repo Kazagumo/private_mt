@@ -5,8 +5,8 @@
 
 #ifdef ARCH_ESP32
 // "legacy adc calibration driver is deprecated, please migrate to use esp_adc/adc_cali.h and esp_adc/adc_cali_scheme.h
-//#include <esp_adc_cal.h>
-//#include <soc/adc_channel.h>
+// #include <esp_adc_cal.h>
+// #include <soc/adc_channel.h>
 #endif
 
 #ifndef NUM_OCV_POINTS
@@ -28,6 +28,8 @@
 #define OCV_ARRAY 4190, 4042, 3957, 3885, 3820, 3776, 3746, 3725, 3696, 3644, 3100
 #elif defined(HELTEC_MESH_POCKET_BATTERY_5000)
 #define OCV_ARRAY 4300, 4240, 4120, 4000, 3888, 3800, 3740, 3698, 3655, 3580, 3400
+#elif defined(ESP32C6)
+#define OCV_ARRAY 4260, 4200, 4120, 4000, 3888, 3800, 3740, 3698, 3655, 3580, 3400
 #elif defined(HELTEC_MESH_POCKET_BATTERY_10000)
 #define OCV_ARRAY 4100, 4060, 3960, 3840, 3729, 3625, 3550, 3500, 3420, 3345, 3100
 #elif defined(SEEED_WIO_TRACKER_L1)
