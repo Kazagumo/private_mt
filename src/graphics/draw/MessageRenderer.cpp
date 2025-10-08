@@ -499,7 +499,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
 
         char timeBuf[16];
         if (invalidTime) {
-            snprintf(timeBuf, sizeof(timeBuf), "???");
+            snprintf(timeBuf, sizeof(timeBuf), "? ago");
         } else if (seconds < 60) {
             snprintf(timeBuf, sizeof(timeBuf), "%us ago", seconds);
         } else if (seconds < 3600) {
@@ -637,7 +637,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                 }
 
                 // Draw underline just under header text
-                int underlineY = lineY + FONT_HEIGHT_SMALL;
+                int underlineY = lineY + cachedHeights[i];
                 for (int px = 0; px < w; ++px) {
                     display->setPixel(headerX + px, underlineY);
                 }
@@ -763,13 +763,23 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
                 lineHeight = std::max(lineHeight, FONT_HEIGHT_SMALL) + 4;
             } else {
                 // Plain last line → full spacing only
-                lineHeight = FONT_HEIGHT_SMALL;
+                if (screen->containsCJKCharacters(_line.c_str())) {
+                    lineHeight = 14;
+                } else {
+                    lineHeight = FONT_HEIGHT_SMALL;
+                }
             }
         } else if (!hasEmote) {
             // Plain body line, tighter spacing
-            lineHeight -= 4;
-            if (lineHeight < 8)
-                lineHeight = 8; // safe minimum
+            if (screen->containsCJKCharacters(_line.c_str())) {
+                lineHeight -= 4;
+                if (lineHeight < 14)
+                    lineHeight = 14; // safe minimum
+            } else {
+                lineHeight -= 4;
+                if (lineHeight < 8)
+                    lineHeight = 8; // safe minimum
+            }
         } else {
             // Line has emotes, don’t compress
             lineHeight += 4; // add breathing room
