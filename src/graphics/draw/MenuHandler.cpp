@@ -436,7 +436,7 @@ void menuHandler::messageResponseMenu()
         optionsEnumArray[options++] = Freetext;
     }
 
-    optionsArray[options] = "Conversations";
+    optionsArray[options] = "View Chats";
     optionsEnumArray[options++] = ViewMode;
 
     // Only show Dismiss All in View All mode
@@ -556,7 +556,7 @@ void menuHandler::messageViewModeMenu()
 
     labels.push_back("Back");
     ids.push_back(-1);
-    labels.push_back("View All");
+    labels.push_back("View All Chats");
     ids.push_back(-2);
 
     // Channels with messages
@@ -877,19 +877,37 @@ void menuHandler::systemBaseMenu()
 
 void menuHandler::favoriteBaseMenu()
 {
-    enum optionsNumbers { Back, Preset, Freetext, Remove, TraceRoute, enumEnd };
+    enum optionsNumbers { Back, Preset, Freetext, GoToChat, Remove, TraceRoute, enumEnd };
+
+    static const char *optionsArray[enumEnd] = {"Back"};
+    static int optionsEnumArray[enumEnd] = {Back};
+    int options = 1;
+
+    // Only show "View Conversation" if a message exists with this node
+    uint32_t peer = graphics::UIRenderer::currentFavoriteNodeNum;
+    bool hasConversation = false;
+    for (const auto &m : messageStore.getMessages()) {
+        if ((m.sender == peer || m.dest == peer)) {
+            hasConversation = true;
+            break;
+        }
+    }
+    if (hasConversation) {
+        optionsArray[options] = "Go To Chat";
+        optionsEnumArray[options++] = GoToChat;
+    }
 #if defined(M5STACK_UNITC6L)
-    static const char *optionsArray[enumEnd] = {"Back", "New Preset"};
+    optionsArray[options] = "New Preset";
 #else
-    static const char *optionsArray[enumEnd] = {"Back", "New Preset Msg"};
+    optionsArray[options] = "New Preset Msg";
 #endif
-    static int optionsEnumArray[enumEnd] = {Back, Preset};
-    int options = 2;
+    optionsEnumArray[options++] = Preset;
 
     if (kb_found) {
         optionsArray[options] = "New Freetext Msg";
         optionsEnumArray[options++] = Freetext;
     }
+
 #if !defined(M5STACK_UNITC6L)
     optionsArray[options] = "Trace Route";
     optionsEnumArray[options++] = TraceRoute;
@@ -911,6 +929,20 @@ void menuHandler::favoriteBaseMenu()
             cannedMessageModule->LaunchWithDestination(graphics::UIRenderer::currentFavoriteNodeNum);
         } else if (selected == Freetext) {
             cannedMessageModule->LaunchFreetextWithDestination(graphics::UIRenderer::currentFavoriteNodeNum);
+        }
+        // Handle new Go To Thread action
+        else if (selected == GoToChat) {
+            // Switch thread to direct conversation with this node
+            graphics::MessageRenderer::setThreadMode(graphics::MessageRenderer::ThreadMode::DIRECT, -1,
+                                                     graphics::UIRenderer::currentFavoriteNodeNum);
+
+            // Reset scroll state for a fresh view
+            graphics::MessageRenderer::resetScrollState();
+
+            // Manually create and send a UIFrameEvent to trigger the jump
+            UIFrameEvent evt;
+            evt.action = UIFrameEvent::Action::SWITCH_TO_TEXTMESSAGE;
+            screen->handleUIFrameEvent(&evt);
         } else if (selected == Remove) {
             menuHandler::menuQueue = menuHandler::remove_favorite;
             screen->runNow();
