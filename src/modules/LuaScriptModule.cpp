@@ -12,10 +12,10 @@
 
 inline void handle_panic(sol::optional<std::string> maybe_msg)
 {
-    LOG_ERROR("Lua is in a panic state and will now abort() the application");
+    log_e("Lua is in a panic state and will now abort() the application");
     if (maybe_msg) {
         const std::string &msg = maybe_msg.value();
-        LOG_ERROR("\terror message: %s", msg.c_str());
+        log_e("\terror message: %s", msg.c_str());
     }
     // When this function exits, Lua will exhibit default behavior and abort()
 }
@@ -202,7 +202,7 @@ bool LuaScriptModule::isRunning()
 ProcessMessage LuaScriptModule::handleReceived(const meshtastic_MeshPacket &mp)
 {
     if (isReady && mp.from != nodeDB->getNodeNum() && mp.from != 0x0) {
-        lua["mp"] = MeshPacketSerializer::JsonSerialize(&mp, false).c_str();
+        lua["mp"] = MeshPacketSerializer::JsonSerialize(&mp, true).c_str();
         lua.safe_script("onReceive(mp)");
         LOG_INFO("[LuaEngine] memory usage %d", lua.memory_used());
         lua.safe_script("mp = nil");
