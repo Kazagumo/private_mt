@@ -1543,9 +1543,9 @@ void menuHandler::wifiToggleMenu()
         bannerOptions.optionsCount = 2;
         bannerOptions.bannerCallback = [](int selected) -> void {
             if (selected == Wifi_toggle) {
-                config.network.wifi_enabled = false;
-                config.bluetooth.enabled = true;
-                moduleConfig.mqtt.proxy_to_client_enabled = true;
+                config.network.wifi_enabled = true;
+                config.bluetooth.enabled = false;
+                moduleConfig.mqtt.proxy_to_client_enabled = false;
                 service->reloadConfig(SEGMENT_CONFIG);
                 service->reloadConfig(SEGMENT_MODULECONFIG);
                 rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
