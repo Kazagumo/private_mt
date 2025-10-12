@@ -10,7 +10,17 @@
 #include <NonBlockingRtttl.h>
 #include <sol/sol.hpp>
 
-sol::state lua;
+inline void handle_panic(sol::optional<std::string> maybe_msg)
+{
+    LOG_ERROR("Lua is in a panic state and will now abort() the application");
+    if (maybe_msg) {
+        const std::string &msg = maybe_msg.value();
+        LOG_ERROR("\terror message: %s", msg.c_str());
+    }
+    // When this function exits, Lua will exhibit default behavior and abort()
+}
+
+sol::state lua(sol::c_call<decltype(&handle_panic), &handle_panic>);
 
 LuaScriptModule *luaScriptModule;
 
