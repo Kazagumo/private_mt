@@ -332,18 +332,6 @@ void MessageStore::dismissOldestMessageWithPeer(uint32_t peer)
     saveToFlash();
 }
 
-// Dismiss newest message (RAM + persisted queue)
-void MessageStore::dismissNewestMessage()
-{
-    if (!liveMessages.empty()) {
-        liveMessages.pop_back();
-    }
-    if (!messages.empty()) {
-        messages.pop_back();
-    }
-    saveToFlash();
-}
-
 // Helper filters for future use
 std::deque<StoredMessage> MessageStore::getChannelMessages(uint8_t channel) const
 {

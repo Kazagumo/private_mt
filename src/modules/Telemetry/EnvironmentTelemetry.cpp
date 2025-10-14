@@ -21,7 +21,7 @@
 #include "target_specific.h"
 #include <OLEDDisplay.h>
 
-#ifndef MESHTASTIC_EXCLUDE_ESENSOR
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
 
 // Sensors
 #include "Sensor/CGRadSensSensor.h"
@@ -305,9 +305,7 @@ int32_t EnvironmentTelemetryModule::runOnce()
             }
 
 #ifdef T1000X_SENSOR_EN
-            result = t1000xSensor.runOnce();
-#elif defined(ESENSOR)
-#elif !defined(MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL) || !defined(GAT562) || !defined(ESENSOR)
+#elif !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
             if (ina219Sensor.hasSensor())
                 result = ina219Sensor.runOnce();
             if (ina260Sensor.hasSensor())
@@ -554,7 +552,6 @@ bool EnvironmentTelemetryModule::getEnvironmentTelemetry(meshtastic_Telemetry *m
     m->which_variant = meshtastic_Telemetry_environment_metrics_tag;
     m->variant.environment_metrics = meshtastic_EnvironmentMetrics_init_zero;
 
-#if (!ESENSOR || !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL)
     for (TelemetrySensor *sensor : sensors) {
         valid = valid && sensor->getMetrics(m);
         hasSensor = true;

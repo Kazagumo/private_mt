@@ -36,7 +36,7 @@ std::string MeshPacketSerializer::JsonSerialize(const meshtastic_MeshPacket *mp,
             payloadStr[mp->decoded.payload.size] = 0; // null terminated string
             // check if this is a JSON payload
             JSONValue *json_value = JSON::Parse(payloadStr);
-            bool isjson = false;
+            bool isjson = false; // if it didn't get a {}, it isn't json.
             for (char payload : payloadStr) {
                 if (payload == '{') {
                     isjson = true;

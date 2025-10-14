@@ -144,7 +144,8 @@ LuaScriptModule::LuaScriptModule()
     if (FSCom.exists("/lua/main.lua")) {
         ;
         LOG_INFO("lua script detected.executing");
-        lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::package, sol::lib::os, sol::lib::io);
+        lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::package, sol::lib::os, sol::lib::io,
+                           sol::lib::math);
         setFunctions();
         if (!FSCom.exists("/exit_without_clean")) {
             FSCom.mkdir("/exit_without_clean");

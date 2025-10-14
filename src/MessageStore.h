@@ -83,7 +83,6 @@ class MessageStore
 
     // Dismiss helpers
     void dismissOldestMessage();
-    void dismissNewestMessage();
 
     // New targeted dismiss helpers
     void dismissOldestMessageInChannel(uint8_t channel);
