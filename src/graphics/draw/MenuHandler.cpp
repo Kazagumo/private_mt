@@ -962,7 +962,7 @@ void menuHandler::positionBaseMenu()
     static const char *optionsArray[enumEnd] = {"Back", "GPS Toggle", "GPS Format", "Compass"};
     static int optionsEnumArray[enumEnd] = {Back, GPSToggle, GPSFormat, CompassMenu};
     int options = 4;
-#ifndef ESENSOR
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
     if (accelerometerThread) {
         optionsArray[options] = "Compass Calibrate";
         optionsEnumArray[options++] = CompassCalibrate;
@@ -983,7 +983,7 @@ void menuHandler::positionBaseMenu()
         } else if (selected == CompassMenu) {
             menuQueue = compass_point_north_menu;
             screen->runNow();
-#ifndef ESENSOR
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
         } else if (selected == CompassCalibrate) {
             accelerometerThread->calibrate(30);
 #endif

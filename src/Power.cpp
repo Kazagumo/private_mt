@@ -56,10 +56,10 @@
 static const adc1_channel_t adc_channel = ADC_CHANNEL;
 static const adc_unit_t unit = ADC_UNIT_1;
 #else
-#include "esp_adc/adc_oneshot.h"
+#include "esp32-hal-periman.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
-#include "esp32-hal-periman.h"
+#include "esp_adc/adc_oneshot.h"
 static adc_channel_t adc_channel;
 #endif
 #else // ADC2
@@ -129,7 +129,7 @@ extern std::pair<uint8_t, TwoWire *> nodeTelemetrySensorsMap[_meshtastic_Telemet
 #if __has_include(<Adafruit_MAX1704X.h>)
 MAX17048Sensor max17048Sensor;
 #else
-NullSensor max17048Sensor;
+// NullSensor max17048Sensor;
 #endif
 #endif
 #endif
@@ -341,7 +341,7 @@ class AnalogBatteryLevel : public HasBatteryLevel
             scaled = esp_adc_cal_raw_to_voltage(raw, adc_characs);
 #else
             ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, raw, &voltage));
-            log_e("raw: %d vol: %d",raw,voltage);
+            log_e("raw: %d vol: %d", raw, voltage);
 #endif
             scaled = operativeAdcMultiplier * voltage;
 #else // block for all other platforms
@@ -694,7 +694,7 @@ bool Power::analogInit()
         .bitwidth = ADC_BITWIDTH_12,
     };
 
-    perimanSetPinBus(BATTERY_PIN,ESP32_BUS_TYPE_ADC_ONESHOT, (void *)(adc_unit + 1), adc_unit, adc_channel);
+    perimanSetPinBus(BATTERY_PIN, ESP32_BUS_TYPE_ADC_ONESHOT, (void *)(adc_unit + 1), adc_unit, adc_channel);
     ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc_unit_handle));
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_unit_handle, adc_channel, &config));
 
@@ -787,7 +787,7 @@ void Power::reboot()
 #if defined(ARCH_ESP32)
     ESP.restart();
 #elif defined(ARCH_NRF52)
-    if(nrf52_GPREGRET != 0x00){
+    if (nrf52_GPREGRET != 0x00) {
         NRF_POWER->GPREGRET = nrf52_GPREGRET; // some device will reboot after GPREGRET was set.
     }
     NVIC_SystemReset();

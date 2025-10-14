@@ -127,7 +127,7 @@ ButtonThread *CancelButtonThread = nullptr;
 #include "PowerFSMThread.h"
 
 #if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_I2C
-#ifndef ESENSOR
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
 #include "motion/AccelerometerThread.h"
 AccelerometerThread *accelerometerThread = nullptr;
 #endif
@@ -245,11 +245,11 @@ const char *getDeviceName()
     if (strcmp(owner.short_name, name) != 0) {
         snprintf(name, sizeof(name), "%s_%02x%02x", owner.short_name, dmac[4], dmac[5]);
     } else {
-        #ifdef GAT562
+#ifdef GAT562
         snprintf(name, sizeof(name), "GAT562_%02x%02x", dmac[4], dmac[5]);
-        #else
+#else
         snprintf(name, sizeof(name), "MeshCN_%02x%02x", dmac[4], dmac[5]);
-        #endif
+#endif
     }
     return name;
 }
@@ -805,7 +805,7 @@ void setup()
 #endif
 
 #if !MESHTASTIC_EXCLUDE_I2C
-#if !defined(ARCH_STM32WL) && !defined(ESENSOR)
+#if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
     if (acc_info.type != ScanI2C::DeviceType::NONE) {
         accelerometerThread = new AccelerometerThread(acc_info.type);
     }

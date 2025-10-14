@@ -66,7 +66,7 @@ extern UdpMulticastHandler *udpHandler;
 extern graphics::Screen *screen;
 
 #if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_I2C
-#ifndef ESENSOR
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
 #include "motion/AccelerometerThread.h"
 extern AccelerometerThread *accelerometerThread;
 #endif
