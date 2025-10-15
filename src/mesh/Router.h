@@ -33,6 +33,7 @@ class Router : protected concurrency::OSThread, protected PacketHistory
      * Currently we only allow one interface, that may change in the future
      */
     void addInterface(RadioInterface *_iface) { iface = _iface; }
+    RadioInterface *getInterface() { return iface; }
 
     /**
      * do idle processing

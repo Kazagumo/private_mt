@@ -129,7 +129,9 @@ extern std::pair<uint8_t, TwoWire *> nodeTelemetrySensorsMap[_meshtastic_Telemet
 #if __has_include(<Adafruit_MAX1704X.h>)
 MAX17048Sensor max17048Sensor;
 #else
-// NullSensor max17048Sensor;
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR
+NullSensor max17048Sensor;
+#endif
 #endif
 #endif
 #endif

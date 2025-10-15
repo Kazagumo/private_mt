@@ -412,7 +412,8 @@ void drawLoRaFocused(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x,
 #if defined(M5STACK_UNITC6L)
         snprintf(regionradiopreset, sizeof(regionradiopreset), "%s", region);
 #else
-        snprintf(regionradiopreset, sizeof(regionradiopreset), "%s/%s", region, mode);
+        snprintf(regionradiopreset, sizeof(regionradiopreset), "%s/%s Noise:%d", region, mode,
+                 router->getInterface()->getNoise());
 #endif
     }
     textWidth = display->getStringWidth(regionradiopreset);

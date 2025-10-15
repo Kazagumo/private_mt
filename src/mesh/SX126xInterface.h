@@ -26,11 +26,27 @@ template <class T> class SX126xInterface : public RadioLibInterface
     /// Prepare hardware for sleep.  Call this _only_ for deep sleep, not needed for light sleep.
     virtual bool sleep() override;
 
+    virtual void runcheck() override;
+    virtual int16_t getNoise() override;
+    virtual int16_t getRSSI() override;
+    virtual float getSNR() override;
+
     bool isIRQPending() override { return lora.getIrqFlags() != 0; }
 
     void setTCXOVoltage(float voltage) { tcxoVoltage = voltage; }
 
   protected:
+    int16_t _noise_floor = 0;
+    uint16_t _num_floor_samples = 0;
+    int32_t _floor_sample_sum = 0;
+
+    bool isdeviceReceiving()
+    {
+        uint16_t irq = lora.getIrqFlags();
+        bool detected = (irq & RADIOLIB_SX126X_IRQ_HEADER_VALID) || (irq & RADIOLIB_SX126X_IRQ_PREAMBLE_DETECTED);
+        return detected;
+    }
+
     float currentLimit = 140; // Higher OCP limit for SX126x PA
     float tcxoVoltage = 0.0;
 

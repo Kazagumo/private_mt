@@ -18,6 +18,9 @@
 #define SX126X_MAX_POWER 22
 #endif
 
+#define NUM_NOISE_FLOOR_SAMPLES 10
+#define SAMPLING_THRESHOLD 50
+
 template <typename T>
 SX126xInterface<T>::SX126xInterface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE cs, RADIOLIB_PIN_TYPE irq, RADIOLIB_PIN_TYPE rst,
                                     RADIOLIB_PIN_TYPE busy)
@@ -375,3 +378,40 @@ template <typename T> void SX126xInterface<T>::setTransmitEnable(bool txon)
 }
 
 #endif
+
+template <typename T> float SX126xInterface<T>::getSNR()
+{
+    return lora.getSNR();
+}
+
+template <typename T> int16_t SX126xInterface<T>::getRSSI()
+{
+    return lround(lora.getRSSI());
+}
+
+template <typename T> int16_t SX126xInterface<T>::getNoise()
+{
+    return _noise_floor;
+}
+
+template <typename T> void SX126xInterface<T>::runcheck()
+{
+    if (isReceiving == true && _num_floor_samples < NUM_NOISE_FLOOR_SAMPLES) {
+        if (!isActivelyReceiving()) {
+            int rssi = lora.getRSSI(false);
+            if (rssi < _noise_floor + SAMPLING_THRESHOLD) { // only consider samples below current floor + sampling THRESHOLD
+                _num_floor_samples++;
+                _floor_sample_sum += rssi;
+                LOG_INFO("gathering noise floor sample %d/%d current rssi %d", NUM_NOISE_FLOOR_SAMPLES, _num_floor_samples, rssi);
+            }
+        }
+    } else if (_num_floor_samples >= NUM_NOISE_FLOOR_SAMPLES && _floor_sample_sum != 0) {
+        _noise_floor = _floor_sample_sum / NUM_NOISE_FLOOR_SAMPLES;
+        if (_noise_floor < -150) {
+            _noise_floor = -150; // clamp to lower bound of -120dBi
+        }
+        _floor_sample_sum = 0;
+        _num_floor_samples = 0;
+        LOG_INFO("noise floor: %d dbi", (int)_noise_floor);
+    }
+}
