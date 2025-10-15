@@ -342,6 +342,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef HAS_TRACKBALL
 #define HAS_TRACKBALL 0
 #endif
+#ifndef HAS_TRACKBALL_I2C
+#define HAS_TRACKBALL_I2C 0
+#endif
 #ifndef HAS_TOUCHSCREEN
 #define HAS_TOUCHSCREEN 0
 #endif
@@ -382,6 +385,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 #ifndef TB_PRESS
 #define TB_PRESS 255
+#endif
+#ifndef TB_INT
+#define TB_INT 255
 #endif
 
 // Support multiple RGB LED configuration

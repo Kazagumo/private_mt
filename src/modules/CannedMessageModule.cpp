@@ -360,7 +360,7 @@ bool CannedMessageModule::isCharInputAllowed() const
 int CannedMessageModule::handleInputEvent(const InputEvent *event)
 {
     // Block ALL input if at message screen
-    if (screen->isTextFrame()) {
+    if (screen && screen->isTextFrame()) {
         return 0;
     }
     // Block ALL input if an alert banner is active

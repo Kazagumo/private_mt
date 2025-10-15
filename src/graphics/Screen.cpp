@@ -731,6 +731,7 @@ static uint32_t lastScreenTransition;
 
 int32_t Screen::runOnce()
 {
+
     // If we don't have a screen, don't ever spend any CPU for us.
     if (!useDisplay) {
         enabled = false;

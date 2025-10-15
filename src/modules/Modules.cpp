@@ -12,6 +12,9 @@
 #if HAS_TRACKBALL
 #include "input/TrackballInterruptImpl1.h"
 #endif
+#if HAS_TRACKBALL_I2C
+#include "input/i2cTBImpl1.h"
+#endif
 
 #if !MESHTASTIC_EXCLUDE_I2C
 #include "input/cardKbI2cImpl.h"
@@ -118,7 +121,7 @@ void setupModules()
 {
 
 #ifdef ESP32C6
-luaScriptModule = new LuaScriptModule();
+    luaScriptModule = new LuaScriptModule();
 #endif
 
 #if (HAS_BUTTON || ARCH_PORTDUINO) && !MESHTASTIC_EXCLUDE_INPUTBROKER
@@ -233,6 +236,12 @@ luaScriptModule = new LuaScriptModule();
     if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
         trackballInterruptImpl1 = new TrackballInterruptImpl1();
         trackballInterruptImpl1->init(TB_DOWN, TB_UP, TB_LEFT, TB_RIGHT, TB_PRESS);
+    }
+#endif
+#if !MESHTASTIC_EXCLUDE_INPUTBROKER && HAS_TRACKBALL_I2C
+    if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
+        i2cTBImpl1 = new I2cTBImpl1();
+        i2cTBImpl1->init(TB_INT);
     }
 #endif
 #ifdef INPUTBROKER_EXPRESSLRSFIVEWAY_TYPE

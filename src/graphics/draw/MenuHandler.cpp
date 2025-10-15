@@ -1579,7 +1579,7 @@ void menuHandler::wifiToggleMenu()
         screen->showOverlayBanner(bannerOptions);
     }
 }
-#ifdef ARCH_ESP32
+#ifdef ESP32C6
 void menuHandler::fileManagerMenu()
 {
     enum optionsNumbers { Back, toggle };
@@ -2022,7 +2022,7 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
         wifiToggleMenu();
         break;
     case file_manager_menu:
-#ifdef ARCH_ESP32
+#ifdef ESP32C6
         fileManagerMenu();
 #endif
         break;
