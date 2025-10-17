@@ -40,7 +40,10 @@ class i2cTBBase : public Observable<const InputEvent *>, public concurrency::OST
         TB_ACTION_UP,
         TB_ACTION_DOWN,
         TB_ACTION_LEFT,
-        TB_ACTION_RIGHT
+        TB_ACTION_RIGHT,
+        TB_ACTION_USER,
+        TB_ACTION_CANCEL,
+
     };
     uint8_t _pinDown = 0;
     uint8_t _pinUp = 0;

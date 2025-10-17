@@ -9,12 +9,9 @@
 #define I2C_SDA 1
 #define I2C_SCL 0
 
-// Button
-#define BUTTON_PIN 9
-
 // Trackball
 #define HAS_TRACKBALL_I2C 1
-#define TB_INT 2
+#define TB_INT 9
 
 // Screen & GPS are not present.
 #define HAS_SCREEN 1

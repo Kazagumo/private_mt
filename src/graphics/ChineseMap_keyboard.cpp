@@ -851,7 +851,7 @@ const PinyinMap pinyinMap_f[] = {{"a", PY_mb_fa},   {"an", PY_mb_fan},   {"ang",
                                  {"en", PY_mb_fen}, {"eng", PY_mb_feng}, {"o", PY_mb_fo},     {"ou", PY_mb_fou},
                                  {"u", PY_mb_fu},   {NULL, NULL}};
 const PinyinMap pinyinMap_g[] = {{"a", PY_mb_ga},     {"ai", PY_mb_gai},   {"an", PY_mb_gan},   {"ang", PY_mb_gang},
-                                 {"ao", PY_mb_gao},   {"e", PY_mb_ge},     {"ei", PY_mb_gei},   {"en", PY_mb_gan},
+                                 {"ao", PY_mb_gao},   {"e", PY_mb_ge},     {"ei", PY_mb_gei},   {"en", PY_mb_gen},
                                  {"eng", PY_mb_geng}, {"ong", PY_mb_gong}, {"ou", PY_mb_gou},   {"u", PY_mb_gu},
                                  {"ua", PY_mb_gua},   {"uai", PY_mb_guai}, {"uan", PY_mb_guan}, {"uang", PY_mb_guang},
                                  {"ui", PY_mb_gui},   {"un", PY_mb_gun},   {"uo", PY_mb_guo},   {NULL, NULL}};

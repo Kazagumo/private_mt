@@ -621,9 +621,10 @@ void drawSystemScreen(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x
     line += 1;
 
     char appversionstr[35];
-    snprintf(appversionstr, sizeof(appversionstr), "Ver: %s", optstr(APP_VERSION));
+    snprintf(appversionstr, sizeof(appversionstr), "RSSI:%d SNR:%.2f", router->getInterface()->getRSSI(),
+             router->getInterface()->getSNR());
     char appversionstr_formatted[40];
-    char *lastDot = strrchr(appversionstr, '.');
+    char *lastDot = nullptr;
 #if defined(M5STACK_UNITC6L)
     if (lastDot != nullptr) {
         *lastDot = '\0'; // truncate string
@@ -654,11 +655,11 @@ void drawSystemScreen(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x
         uint32_t mins = (uptime % 3600) / 60;
         // Show as "Up: 2d 3h", "Up: 5h 14m", or "Up: 37m"
         if (days)
-            snprintf(uptimeStr, sizeof(uptimeStr), " Up: %ud %uh", days, hours);
+            snprintf(uptimeStr, sizeof(uptimeStr), " Up: %ud %uh Ver: %s", days, hours, optstr(APP_VERSION_SHORT));
         else if (hours)
-            snprintf(uptimeStr, sizeof(uptimeStr), " Up: %uh %um", hours, mins);
+            snprintf(uptimeStr, sizeof(uptimeStr), " Up: %uh %um Ver: %s", hours, mins, optstr(APP_VERSION_SHORT));
         else
-            snprintf(uptimeStr, sizeof(uptimeStr), " Uptime: %um", mins);
+            snprintf(uptimeStr, sizeof(uptimeStr), " Uptime: %um Ver: %s", mins, optstr(APP_VERSION_SHORT));
         textWidth = display->getStringWidth(uptimeStr);
         nameX = (SCREEN_WIDTH - textWidth) / 2;
         display->drawString(nameX, getTextPositions(display)[line], uptimeStr);
