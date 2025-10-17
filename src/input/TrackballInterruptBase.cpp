@@ -88,7 +88,7 @@ int32_t TrackballInterruptBase::runOnce()
         }
     }
 
-        if (directionDetected && directionStartTime > 0) {
+    if (directionDetected && directionStartTime > 0) {
         uint32_t directionDuration = millis() - directionStartTime;
         uint8_t directionPressed = this->action;
         uint8_t directionPressedNow = 0;
@@ -131,7 +131,6 @@ int32_t TrackballInterruptBase::runOnce()
         }
     }
 
-
 #if defined(T_DECK) // T-deck gets a super-simple debounce on trackball
     if (this->action == TB_ACTION_PRESSED && !pressDetected) {
         // Start long press detection
@@ -161,7 +160,7 @@ int32_t TrackballInterruptBase::runOnce()
         directionDetected = true;
         directionStartTime = millis();
         e.inputEvent = this->_eventUp;
-        // send event first,will automatically trigger every 50ms * 3 after 500ms
+        // send event first,will automatically trigger every 50ms * 3 after 300ms
     } else if (this->action == TB_ACTION_DOWN && !digitalRead(_pinDown) && !directionDetected) {
         directionDetected = true;
         directionStartTime = millis();

@@ -39,29 +39,31 @@ void i2cTBBase::init(uint8_t pinInt, input_broker_event eventDown, input_broker_
 
 int32_t i2cTBBase::runOnce()
 {
-    if (i2cTBImpl1->pcf8574IntFlag) {
+    if (this->pcf8574IntFlag) {
         uint8_t ret = pcf8574->readAll();
         switch (ret) {
-        case 0b11111110: // P0
-            i2cTBImpl1->intPressHandler();
+        case 0b11111110: // P0 press
+            this->intPressHandler();
             break;
-        case 0b11111101: // P1
-            i2cTBImpl1->intDownHandler();
+        case 0b11111101: // P1 down
+            this->intDownHandler();
             break;
-        case 0b11111011: // P2
-            i2cTBImpl1->intUpHandler();
+        case 0b11111011: // P2 up
+            this->intUpHandler();
             break;
-        case 0b11110111: // P3
-            i2cTBImpl1->intLeftHandler();
+        case 0b11110111: // P3 left
+            this->intLeftHandler();
             break;
-        case 0b11101111: // P4
-            i2cTBImpl1->intRightHandler();
+        case 0b11101111: // P4 right
+            this->intRightHandler();
             break;
-        case 0b11011111: // P5 unused
+        case 0b11011111: // P5 usrbutton
+            this->action = TB_ACTION_USER;
             break;
-        case 0b10111111: // P6 unused
+        case 0b10111111: // P6 cancel
+            this->action = TB_ACTION_CANCEL;
             break;
-        case 0b01111111: // P7 unused
+        case 0b01111111: // P7
             break;
         default:
             break;
@@ -190,6 +192,10 @@ int32_t i2cTBBase::runOnce()
         directionDetected = true;
         directionStartTime = millis();
         e.inputEvent = this->_eventRight;
+    } else if (this->action == TB_ACTION_USER) {
+        e.inputEvent = INPUT_BROKER_USER_PRESS;
+    } else if (this->action == TB_ACTION_CANCEL) {
+        e.inputEvent = INPUT_BROKER_CANCEL;
     }
 #endif
 

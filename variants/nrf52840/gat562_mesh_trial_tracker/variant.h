@@ -148,7 +148,10 @@ static const uint8_t SCK = PIN_SPI_SCK;
 #define USE_SSD1306
 
 // RAKRGB
-// #define HAS_NCP5623
+#ifdef HAS_NEOPIXEL      // Enable the use of neopixels
+#define NEOPIXEL_COUNT 1 // How many neopixels are connected
+#define NEOPIXEL_TYPE (NEO_GRB + NEO_KHZ800)
+#endif
 
 /*
  * Wire Interfaces
@@ -259,7 +262,7 @@ SO GPIO 39/TXEN MAY NOT BE DEFINED FOR SUCCESSFUL OPERATION OF THE SX1262 - TG
 // #define RV3028_RTC (uint8_t)0b1010010
 
 // RAK18001 Buzzer in Slot C
-// #define PIN_BUZZER 21 // IO3 is PWM2
+#define PIN_BUZZER 33 // IO3 is PWM2
 // NEW: set this via protobuf instead!
 
 // Battery
