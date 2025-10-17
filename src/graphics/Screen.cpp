@@ -1485,7 +1485,7 @@ int Screen::handleInputEvent(const InputEvent *event)
             if (this->ui->getUiState()->currentFrame == framesetInfo.positions.textMessage) {
                 MessageRenderer::handleManualScroll(event->inputEvent);
                 setFastFramerate();
-            } else {
+            } else if (isManualScroll) {
                 isManualScroll = false;
             }
 #ifdef GAT562_MESH_TRACKER_PRO
@@ -1508,7 +1508,7 @@ int Screen::handleInputEvent(const InputEvent *event)
 #endif
                 if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
                 showPrevFrame();
-            if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
+            } else if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
                 showFrame(FrameDirection::PREVIOUS);
             } else if (event->inputEvent == INPUT_BROKER_RIGHT || event->inputEvent == INPUT_BROKER_USER_PRESS) {
                 showFrame(FrameDirection::NEXT);
@@ -1558,7 +1558,6 @@ int Screen::handleInputEvent(const InputEvent *event)
             }
         }
     }
-
     return 0;
 }
 

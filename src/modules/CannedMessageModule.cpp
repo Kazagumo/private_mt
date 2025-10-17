@@ -1201,17 +1201,14 @@ void CannedMessageModule::sendTextSlient(NodeNum dest, ChannelIndex channel, con
 
     // Always use our local time, consistent with other paths
     uint32_t nowSecs = getValidTime(RTCQuality::RTCQualityDevice, true);
-    if (nowSecs > 0) {
-        sm.timestamp = nowSecs;
-        sm.isBootRelative = false;
-    } else {
-        sm.timestamp = millis() / 1000;
-        sm.isBootRelative = true; // mark for later upgrade
-    }
+    sm.timestamp = (nowSecs > 0) ? nowSecs : millis() / 1000;
+    sm.isBootRelative = (nowSecs == 0);
 
     sm.sender = nodeDB->getNodeNum(); // us
     sm.channelIndex = channel;
-    sm.text = std::string(message);
+    size_t len = strnlen(message, MAX_MESSAGE_SIZE - 1);
+    sm.textOffset = MessageStore::storeText(message, len);
+    sm.textLength = len;
 
     // Classify broadcast vs DM
     if (dest == NODENUM_BROADCAST) {
@@ -1223,7 +1220,7 @@ void CannedMessageModule::sendTextSlient(NodeNum dest, ChannelIndex channel, con
     }
     sm.ackStatus = AckStatus::NONE;
 
-    messageStore.addLiveMessage(sm);
+    messageStore.addLiveMessage(std::move(sm));
 }
 
 int32_t CannedMessageModule::runOnce()
