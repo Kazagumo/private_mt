@@ -68,8 +68,6 @@ class Screen
     void startFirmwareUpdateScreen() {}
     void increaseBrightness() {}
     void decreaseBrightness() {}
-    void setFunctionSymbol(std::string) {}
-    void removeFunctionSymbol(std::string) {}
     void startAlert(const char *) {}
     void showSimpleBanner(const char *message, uint32_t durationMs = 0) {}
     void showOverlayBanner(BannerOverlayOptions) {}
@@ -182,6 +180,8 @@ class Point
 
 namespace graphics
 {
+
+enum class FrameDirection { NEXT, PREVIOUS };
 
 // Forward declarations
 class Screen;
@@ -307,6 +307,7 @@ class Screen : public concurrency::OSThread
     void onPress() { enqueueCmd(ScreenCmd{.cmd = Cmd::ON_PRESS}); }
     void showPrevFrame() { enqueueCmd(ScreenCmd{.cmd = Cmd::SHOW_PREV_FRAME}); }
     void showNextFrame() { enqueueCmd(ScreenCmd{.cmd = Cmd::SHOW_NEXT_FRAME}); }
+    void showFrame(FrameDirection direction);
 
     // generic alert start
     void startAlert(FrameCallback _alertFrame)
@@ -373,9 +374,6 @@ class Screen : public concurrency::OSThread
     // functions for display brightness
     void increaseBrightness();
     void decreaseBrightness();
-
-    void setFunctionSymbol(std::string sym);
-    void removeFunctionSymbol(std::string sym);
 
     /// Stops showing the boot screen.
     void stopBootScreen() { enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BOOT_SCREEN}); }
@@ -618,9 +616,6 @@ class Screen : public concurrency::OSThread
     /// Draws our SSL cert screen during boot (called from WebServer)
     void setSSLFrames();
 
-    // Dismiss the currently focussed frame, if possible (e.g. text message, waypoint)
-    void hideCurrentFrame();
-
     // Menu-driven Show / Hide Toggle
     void toggleFrameVisibility(const std::string &frameName);
     bool isFrameHidden(const std::string &frameName) const;
@@ -670,8 +665,6 @@ class Screen : public concurrency::OSThread
     // Implementations of various commands, called from doTask().
     void handleSetOn(bool on, FrameCallback einkScreensaver = NULL);
     void handleOnPress();
-    void handleShowNextFrame();
-    void handleShowPrevFrame();
     void handleStartFirmwareUpdateScreen();
 
     // Info collected by setFrames method.

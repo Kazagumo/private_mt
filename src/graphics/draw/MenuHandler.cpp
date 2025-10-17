@@ -2,6 +2,7 @@
 #include "mesh/Default.h"
 #if HAS_SCREEN
 #include "ClockRenderer.h"
+#include "Default.h"
 #include "GPS.h"
 #include "MenuHandler.h"
 #include "MeshRadio.h"
@@ -418,8 +419,6 @@ void menuHandler::messageResponseMenu()
     int options = 0;
 
     auto mode = graphics::MessageRenderer::getThreadMode();
-    int ch = graphics::MessageRenderer::getThreadChannel();
-    uint32_t peer = graphics::MessageRenderer::getThreadPeer();
 
     optionsArray[options] = "Back";
     optionsEnumArray[options++] = Back;
@@ -444,15 +443,15 @@ void menuHandler::messageResponseMenu()
 #if defined(M5STACK_UNITC6L)
         optionsArray[options] = "Delete All";
 #else
-        optionsArray[options] = "Delete All Threads";
+        optionsArray[options] = "Delete All Chats";
 #endif
         optionsEnumArray[options++] = DismissAll;
     }
-#if defined(M5STACK_UNITC6L)
-    optionsArray[options] = "Delete Oldest";
-#else
-    optionsArray[options] = "Delete Oldest Message";
-#endif
+    if (isHighResolution) {
+        optionsArray[options] = "Delete Oldest Message";
+    } else {
+        optionsArray[options] = "Delete Oldest Msg";
+    }
     optionsEnumArray[options++] = DismissOldest;
 
 #ifdef HAS_I2S
@@ -484,9 +483,7 @@ void menuHandler::messageResponseMenu()
         } else if (selected == DismissAll) {
             messageStore.clearAllMessages();
             graphics::MessageRenderer::clearThreadRegistries();
-
-            // Reset back to "View All"
-            graphics::MessageRenderer::setThreadMode(graphics::MessageRenderer::ThreadMode::ALL);
+            graphics::MessageRenderer::clearMessageCache();
         } else if (selected == DismissOldest) {
             auto mode = graphics::MessageRenderer::getThreadMode();
             int ch = graphics::MessageRenderer::getThreadChannel();
@@ -935,9 +932,6 @@ void menuHandler::favoriteBaseMenu()
             // Switch thread to direct conversation with this node
             graphics::MessageRenderer::setThreadMode(graphics::MessageRenderer::ThreadMode::DIRECT, -1,
                                                      graphics::UIRenderer::currentFavoriteNodeNum);
-
-            // Reset scroll state for a fresh view
-            graphics::MessageRenderer::resetScrollState();
 
             // Manually create and send a UIFrameEvent to trigger the jump
             UIFrameEvent evt;

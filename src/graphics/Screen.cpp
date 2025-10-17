@@ -67,10 +67,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "target_specific.h"
 extern MessageStore messageStore;
 
-using graphics::Emote;
-using graphics::emotes;
-using graphics::numEmotes;
-
 extern uint16_t TFT_MESH;
 
 #if HAS_WIFI && !defined(ARCH_PORTDUINO)
@@ -116,10 +112,6 @@ uint32_t dopThresholds[5] = {2000, 1000, 500, 200, 100};
 // At some point, we're going to ask all of the modules if they would like to display a screen frame
 // we'll need to hold onto pointers for the modules that can draw a frame.
 std::vector<MeshModule *> moduleFrames;
-
-// Global variables for screen function overlay symbols
-std::vector<std::string> functionSymbol;
-std::string functionSymbolString;
 
 #if HAS_GPS
 // GeoCoord object for the screen
@@ -291,9 +283,7 @@ static void drawModuleFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int
     } else {
         // otherwise, just display the module frame that's aligned with the current frame
         module_frame = state->currentFrame;
-        // LOG_DEBUG("Screen is not in transition.  Frame: %d", module_frame);
     }
-    // LOG_DEBUG("Draw Module Frame %d", module_frame);
     MeshModule &pi = *moduleFrames.at(module_frame);
     pi.drawFrame(display, state, x, y);
 }
@@ -344,16 +334,16 @@ Screen::Screen(ScanI2C::DeviceAddress address, meshtastic_Config_DisplayConfig_O
 {
     graphics::normalFrames = new FrameCallback[MAX_NUM_NODES + NUM_EXTRA_FRAMES];
 
-    LOG_INFO("Protobuf Value uiconfig.screen_rgb_color: %d", uiconfig.screen_rgb_color);
     int32_t rawRGB = uiconfig.screen_rgb_color;
-    if (rawRGB > 0 && rawRGB <= 255255255) {
-        uint8_t TFT_MESH_r = (rawRGB >> 16) & 0xFF;
-        uint8_t TFT_MESH_g = (rawRGB >> 8) & 0xFF;
-        uint8_t TFT_MESH_b = rawRGB & 0xFF;
-        LOG_INFO("Values of r,g,b: %d, %d, %d", TFT_MESH_r, TFT_MESH_g, TFT_MESH_b);
 
-        if (TFT_MESH_r <= 255 && TFT_MESH_g <= 255 && TFT_MESH_b <= 255) {
-            TFT_MESH = COLOR565(TFT_MESH_r, TFT_MESH_g, TFT_MESH_b);
+    // Only validate the combined value once
+    if (rawRGB > 0 && rawRGB <= 255255255) {
+        // Extract each component as a normal int first
+        int r = (rawRGB >> 16) & 0xFF;
+        int g = (rawRGB >> 8) & 0xFF;
+        int b = rawRGB & 0xFF;
+        if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+            TFT_MESH = COLOR565(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b));
         }
     }
 
@@ -741,6 +731,23 @@ int32_t Screen::runOnce()
     if (displayHeight == 0) {
         displayHeight = dispdev->getHeight();
     }
+
+    // Detect frame transitions and clear message cache when leaving text message screen
+    {
+        static int8_t lastFrameIndex = -1;
+        int8_t currentFrameIndex = ui->getUiState()->currentFrame;
+        int8_t textMsgIndex = framesetInfo.positions.textMessage;
+
+        if (lastFrameIndex != -1 && currentFrameIndex != lastFrameIndex) {
+
+            if (lastFrameIndex == textMsgIndex && currentFrameIndex != textMsgIndex) {
+                graphics::MessageRenderer::clearMessageCache();
+            }
+        }
+
+        lastFrameIndex = currentFrameIndex;
+    }
+
     menuHandler::handleMenuSwitch(dispdev);
 
     // Show boot screen for first logo_timeout seconds, then switch to normal operation.
@@ -807,17 +814,17 @@ int32_t Screen::runOnce()
             break;
         case Cmd::ON_PRESS:
             if (NotificationRenderer::current_notification_type != notificationTypeEnum::text_input) {
-                handleOnPress();
+                showFrame(FrameDirection::NEXT);
             }
             break;
         case Cmd::SHOW_PREV_FRAME:
             if (NotificationRenderer::current_notification_type != notificationTypeEnum::text_input) {
-                handleShowPrevFrame();
+                showFrame(FrameDirection::PREVIOUS);
             }
             break;
         case Cmd::SHOW_NEXT_FRAME:
             if (NotificationRenderer::current_notification_type != notificationTypeEnum::text_input) {
-                handleShowNextFrame();
+                showFrame(FrameDirection::NEXT);
             }
             break;
         case Cmd::START_ALERT_FRAME: {
@@ -1281,34 +1288,6 @@ bool Screen::isFrameHidden(const std::string &frameName) const
     return false;
 }
 
-// Dismisses the currently displayed screen frame, if possible
-// Relevant for text message, waypoint, others in future?
-// Triggered with a CardKB keycombo
-void Screen::hideCurrentFrame()
-{
-    uint8_t currentFrame = ui->getUiState()->currentFrame;
-    bool dismissed = false;
-
-    if (currentFrame == framesetInfo.positions.waypoint && devicestate.has_rx_waypoint) {
-        LOG_DEBUG("Hide Waypoint");
-        devicestate.has_rx_waypoint = false;
-        hiddenFrames.waypoint = true;
-        dismissed = true;
-    } else if (currentFrame == framesetInfo.positions.wifi) {
-        LOG_DEBUG("Hide WiFi Screen");
-        hiddenFrames.wifi = true;
-        dismissed = true;
-    } else if (currentFrame == framesetInfo.positions.lora) {
-        LOG_INFO("Hide LoRa");
-        hiddenFrames.lora = true;
-        dismissed = true;
-    }
-
-    if (dismissed) {
-        setFrames(FOCUS_DEFAULT);
-    }
-}
-
 void Screen::handleStartFirmwareUpdateScreen()
 {
     LOG_DEBUG("Show firmware screen");
@@ -1361,28 +1340,6 @@ void Screen::decreaseBrightness()
     /* TO DO: add little popup in center of screen saying what brightness level it is set to*/
 }
 
-void Screen::setFunctionSymbol(std::string sym)
-{
-    if (std::find(functionSymbol.begin(), functionSymbol.end(), sym) == functionSymbol.end()) {
-        functionSymbol.push_back(sym);
-        functionSymbolString = "";
-        for (auto symbol : functionSymbol) {
-            functionSymbolString = symbol + " " + functionSymbolString;
-        }
-        setFastFramerate();
-    }
-}
-
-void Screen::removeFunctionSymbol(std::string sym)
-{
-    functionSymbol.erase(std::remove(functionSymbol.begin(), functionSymbol.end(), sym), functionSymbol.end());
-    functionSymbolString = "";
-    for (auto symbol : functionSymbol) {
-        functionSymbolString = symbol + " " + functionSymbolString;
-    }
-    setFastFramerate();
-}
-
 void Screen::handleOnPress()
 {
     // If screen was off, just wake it, otherwise advance to next frame
@@ -1394,31 +1351,19 @@ void Screen::handleOnPress()
     }
 }
 
-void Screen::handleShowPrevFrame()
+void Screen::showFrame(FrameDirection direction)
 {
-    // If screen was off, just wake it, otherwise go back to previous frame
-    // If we are in a transition, the press must have bounced, drop it.
+    // Only advance frames when UI is stable
     if (ui->getUiState()->frameState == FIXED) {
-        ui->previousFrame();
+
+        if (direction == FrameDirection::NEXT) {
+            ui->nextFrame();
+        } else {
+            ui->previousFrame();
+        }
+
         lastScreenTransition = millis();
         setFastFramerate();
-
-        // Reset scroll state if we’re leaving the text message frame
-        graphics::MessageRenderer::resetScrollState();
-    }
-}
-
-void Screen::handleShowNextFrame()
-{
-    // If screen was off, just wake it, otherwise advance to next frame
-    // If we are in a transition, the press must have bounced, drop it.
-    if (ui->getUiState()->frameState == FIXED) {
-        ui->nextFrame();
-        lastScreenTransition = millis();
-        setFastFramerate();
-
-        // Reset scroll state if we’re leaving the text message frame
-        graphics::MessageRenderer::resetScrollState();
     }
 }
 
@@ -1442,7 +1387,6 @@ void Screen::setFastFramerate()
 
 int Screen::handleStatusUpdate(const meshtastic::Status *arg)
 {
-    // LOG_DEBUG("Screen got status update %d", arg->getStatusType());
     switch (arg->getStatusType()) {
     case STATUS_TYPE_NODE:
         if (showingNormalScreen && nodeStatus->getLastNumTotal() != nodeStatus->getNumTotal()) {
@@ -1453,110 +1397,6 @@ int Screen::handleStatusUpdate(const meshtastic::Status *arg)
     case STATUS_TYPE_POWER:
         forceDisplay(true);
         break;
-    }
-
-    return 0;
-}
-
-// Handles when message is received; will jump to text message frame.
-int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
-{
-    if (showingNormalScreen) {
-        if (packet->from == 0) {
-            // Outgoing message (likely sent from phone)
-            devicestate.has_rx_text_message = false;
-            memset(&devicestate.rx_text_message, 0, sizeof(devicestate.rx_text_message));
-            hiddenFrames.textMessage = true;
-            hasUnreadMessage = false; // Clear unread state when user replies
-
-            setFrames(FOCUS_PRESERVE); // Stay on same frame, silently update frame list
-        } else {
-            // Incoming message
-            devicestate.has_rx_text_message = true; // Needed to include the message frame
-            hasUnreadMessage = true;                // Enables mail icon in the header
-
-            // Always update frame list to include new message, but defer UI updates if virtual keyboard is active
-            if (NotificationRenderer::current_notification_type != notificationTypeEnum::text_input) {
-                setFrames(FOCUS_PRESERVE); // Refresh frame list without switching view
-
-                // Only wake/force display if the configuration allows it
-                if (shouldWakeOnReceivedMessage()) {
-                    setOn(true);    // Wake up the screen first
-                    forceDisplay(); // Forces screen redraw
-                }
-            } else {
-                // Virtual keyboard is active - just mark that frames need regeneration when keyboard closes
-                // The devicestate and hasUnreadMessage are already set above, so message will appear later
-                LOG_INFO("Virtual keyboard active - deferring frame list update for new message");
-            }
-
-            // Show message alert - either as normal banner or as keyboard popup
-            // === Common variables ===
-            const meshtastic_NodeInfoLite *node = nodeDB->getMeshNode(packet->from);
-            const char *longName = (node && node->has_user) ? node->user.long_name : nullptr;
-            const char *msgRaw = reinterpret_cast<const char *>(packet->decoded.payload.bytes);
-
-            // Check for bell character in message to determine alert type
-            bool isAlert = false;
-            for (size_t i = 0; i < packet->decoded.payload.size && i < 100; i++) {
-                if (msgRaw[i] == '\x07') {
-                    isAlert = true;
-                    break;
-                }
-            }
-
-            if (NotificationRenderer::current_notification_type != notificationTypeEnum::text_input) {
-                // === Normal banner mode ===
-                char banner[256];
-                if (isAlert) {
-                    if (longName && longName[0]) {
-                        snprintf(banner, sizeof(banner), "Alert Received from\n%s", longName);
-                    } else {
-                        strcpy(banner, "Alert Received");
-                    }
-                } else {
-                    if (longName && longName[0]) {
-                        snprintf(banner, sizeof(banner), "New Message from\n%s", longName);
-                    } else {
-                        strcpy(banner, "New Message");
-                    }
-                }
-                screen->showSimpleBanner(banner, 3000);
-            } else {
-                // === Virtual keyboard popup mode ===
-                char title[64];
-                if (isAlert) {
-                    if (longName && longName[0]) {
-                        snprintf(title, sizeof(title), "Alert from %s", longName);
-                    } else {
-                        strcpy(title, "Alert Received");
-                    }
-                } else {
-                    if (longName && longName[0]) {
-                        snprintf(title, sizeof(title), "%s", longName);
-                    } else {
-                        strcpy(title, "New Message");
-                    }
-                }
-
-                // Prepare content - clean the message content
-                char content[200];
-                size_t contentLen = 0;
-                for (size_t i = 0; i < packet->decoded.payload.size && i < sizeof(content) - 1; i++) {
-                    if (msgRaw[i] != '\x07' && msgRaw[i] != '\0') { // Skip bell character and null
-                        content[contentLen++] = msgRaw[i];
-                    }
-                }
-                content[contentLen] = '\0';
-
-                // Show popup with title and content on virtual keyboard
-                NotificationRenderer::showKeyboardMessagePopupWithTitle(title, content, 5000);
-
-                // Force display update to show the popup immediately
-                setFastFramerate();
-                forceDisplay();
-            }
-        }
     }
 
     return 0;
@@ -1668,8 +1508,10 @@ int Screen::handleInputEvent(const InputEvent *event)
 #endif
                 if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
                 showPrevFrame();
+            if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
+                showFrame(FrameDirection::PREVIOUS);
             } else if (event->inputEvent == INPUT_BROKER_RIGHT || event->inputEvent == INPUT_BROKER_USER_PRESS) {
-                showNextFrame();
+                showFrame(FrameDirection::NEXT);
             } else if (event->inputEvent == INPUT_BROKER_SELECT) {
                 if (this->ui->getUiState()->currentFrame == framesetInfo.positions.home) {
                     menuHandler::homeBaseMenu();
@@ -1710,7 +1552,9 @@ int Screen::handleInputEvent(const InputEvent *event)
             } else if (event->inputEvent == INPUT_BROKER_BACK) {
                 showPrevFrame();
             } else if (event->inputEvent == INPUT_BROKER_SELECT_LONG) {
-                screen->setOn(false);
+                setOn(false);
+            } else if (event->inputEvent == INPUT_BROKER_CANCEL) {
+                setOn(false);
             }
         }
     }

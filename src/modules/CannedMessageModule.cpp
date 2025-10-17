@@ -44,6 +44,75 @@ extern MessageStore messageStore;
 // Remove Canned message screen if no action is taken for some milliseconds
 #define INACTIVATE_AFTER_MS 20000
 
+// Tokenize a message string into emote/text segments
+static std::vector<std::pair<bool, String>> tokenizeMessageWithEmotes(const char *msg)
+{
+    std::vector<std::pair<bool, String>> tokens;
+    int msgLen = strlen(msg);
+    int pos = 0;
+    while (pos < msgLen) {
+        const graphics::Emote *foundEmote = nullptr;
+        int foundLen = 0;
+        for (int j = 0; j < graphics::numEmotes; j++) {
+            const char *label = graphics::emotes[j].label;
+            int labelLen = strlen(label);
+            if (labelLen == 0)
+                continue;
+            if (strncmp(msg + pos, label, labelLen) == 0) {
+                if (!foundEmote || labelLen > foundLen) {
+                    foundEmote = &graphics::emotes[j];
+                    foundLen = labelLen;
+                }
+            }
+        }
+        if (foundEmote) {
+            tokens.emplace_back(true, String(foundEmote->label));
+            pos += foundLen;
+        } else {
+            // Find next emote
+            int nextEmote = msgLen;
+            for (int j = 0; j < graphics::numEmotes; j++) {
+                const char *label = graphics::emotes[j].label;
+                if (!label || !*label)
+                    continue;
+                const char *found = strstr(msg + pos, label);
+                if (found && (found - msg) < nextEmote) {
+                    nextEmote = found - msg;
+                }
+            }
+            int textLen = (nextEmote > pos) ? (nextEmote - pos) : (msgLen - pos);
+            if (textLen > 0) {
+                tokens.emplace_back(false, String(msg + pos).substring(0, textLen));
+                pos += textLen;
+            } else {
+                break;
+            }
+        }
+    }
+    return tokens;
+}
+
+// Render a single emote token centered vertically on a row
+static void renderEmote(OLEDDisplay *display, int &nextX, int lineY, int rowHeight, const String &label)
+{
+    const graphics::Emote *emote = nullptr;
+    for (int j = 0; j < graphics::numEmotes; j++) {
+        if (label == graphics::emotes[j].label) {
+            emote = &graphics::emotes[j];
+            break;
+        }
+    }
+    if (emote) {
+        int emoteYOffset = (rowHeight - emote->height) / 2; // vertically center the emote
+        display->drawXbm(nextX, lineY + emoteYOffset, emote->width, emote->height, emote->bitmap);
+        nextX += emote->width + 2; // spacing between tokens
+    }
+}
+
+namespace graphics
+{
+extern int bannerSignalBars;
+}
 extern ScanI2C::DeviceAddress cardkb_found;
 #ifdef CJK_ENABLE
 extern graphics::Screen *screen;
@@ -256,8 +325,6 @@ void CannedMessageModule::drawHeader(OLEDDisplay *display, int16_t x, int16_t y,
 
 void CannedMessageModule::resetSearch()
 {
-    LOG_INFO("Resetting search, restoring full destination list");
-
     int previousDestIndex = destIndex;
 
     searchQuery = "";
@@ -301,7 +368,7 @@ void CannedMessageModule::updateDestinationSelectionList()
 
     for (size_t i = 0; i < numMeshNodes; ++i) {
         meshtastic_NodeInfoLite *node = nodeDB->getMeshNodeByIndex(i);
-        if (!node || node->num == myNodeNum)
+        if (!node || node->num == myNodeNum || !node->has_user || node->user.public_key.size != 32)
             continue;
 
         const String &nodeName = node->user.long_name;
@@ -319,6 +386,10 @@ void CannedMessageModule::updateDestinationSelectionList()
         }
     }
 
+    meshtastic_MeshPacket *p = allocDataPacket();
+    p->pki_encrypted = true;
+    p->channel = 0;
+
     // Populate active channels
     std::vector<String> seenChannels;
     seenChannels.reserve(channels.getNumChannels());
@@ -329,15 +400,6 @@ void CannedMessageModule::updateDestinationSelectionList()
             seenChannels.push_back(name);
         }
     }
-
-    /* As the nodeDB is sorted, can skip this step
-    // Sort by favorite, then last heard
-    std::sort(this->filteredNodes.begin(), this->filteredNodes.end(), [](const NodeEntry &a, const NodeEntry &b) {
-        if (a.node->is_favorite != b.node->is_favorite)
-            return a.node->is_favorite > b.node->is_favorite;
-        return a.lastHeard < b.lastHeard;
-    });
-    */
 
     scrollIndex = 0; // Show first result at the top
     destIndex = 0;   // Highlight the first entry
@@ -1015,6 +1077,23 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
     this->lastSentNode = dest;
     this->incoming = dest;
 
+    // Manually find the node by number to check PKI capability
+    meshtastic_NodeInfoLite *node = nullptr;
+    size_t numMeshNodes = nodeDB->getNumMeshNodes();
+    for (size_t i = 0; i < numMeshNodes; ++i) {
+        meshtastic_NodeInfoLite *n = nodeDB->getMeshNodeByIndex(i);
+        if (n && n->num == dest) {
+            node = n;
+            break;
+        }
+    }
+
+    NodeNum myNodeNum = nodeDB->getNodeNum();
+    if (node && node->num != myNodeNum && node->has_user && node->user.public_key.size == 32) {
+        p->pki_encrypted = true;
+        p->channel = 0; // force PKI
+    }
+
     // Track this packet’s request ID for matching ACKs
     this->lastRequestId = p->id;
 
@@ -1029,7 +1108,7 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
 
     this->waitingForAck = true;
 
-    // Send to mesh
+    // Send to mesh (PKI-encrypted if conditions above matched)
     service->sendToMesh(p, RX_SRC_LOCAL, true);
 
     // Show banner immediately
@@ -1045,17 +1124,14 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
 
     // Always use our local time, consistent with other paths
     uint32_t nowSecs = getValidTime(RTCQuality::RTCQualityDevice, true);
-    if (nowSecs > 0) {
-        sm.timestamp = nowSecs;
-        sm.isBootRelative = false;
-    } else {
-        sm.timestamp = millis() / 1000;
-        sm.isBootRelative = true; // mark for later upgrade
-    }
+    sm.timestamp = (nowSecs > 0) ? nowSecs : millis() / 1000;
+    sm.isBootRelative = (nowSecs == 0);
 
     sm.sender = nodeDB->getNodeNum(); // us
     sm.channelIndex = channel;
-    sm.text = std::string(message);
+    size_t len = strnlen(message, MAX_MESSAGE_SIZE - 1);
+    sm.textOffset = MessageStore::storeText(message, len);
+    sm.textLength = len;
 
     // Classify broadcast vs DM
     if (dest == NODENUM_BROADCAST) {
@@ -1067,7 +1143,7 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
     }
     sm.ackStatus = AckStatus::NONE;
 
-    messageStore.addLiveMessage(sm);
+    messageStore.addLiveMessage(std::move(sm));
 
     // Auto-switch thread view on outgoing message
     if (sm.type == MessageType::BROADCAST) {
@@ -1078,8 +1154,6 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
 
     playComboTune();
 
-    // Important
-    // Instead of INACTIVE here, use SENDING_ACTIVE so runOnce() does the cleanup.
     this->runState = CANNED_MESSAGE_RUN_STATE_SENDING_ACTIVE;
     this->payload = wantReplies ? 1 : 0;
     requestFocus();
@@ -1088,11 +1162,6 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
     UIFrameEvent e;
     e.action = UIFrameEvent::Action::SWITCH_TO_TEXTMESSAGE;
     notifyObservers(&e);
-
-    // Now mark ourselves as sending
-    this->runState = CANNED_MESSAGE_RUN_STATE_SENDING_ACTIVE;
-    this->payload = wantReplies ? 1 : 0;
-    requestFocus(); // focus only after event is dispatched
 }
 
 void CannedMessageModule::sendTextSlient(NodeNum dest, ChannelIndex channel, const char *message, bool wantReplies)
@@ -1346,7 +1415,6 @@ int32_t CannedMessageModule::runOnce()
             this->freetext = "";
             this->cursor = 0;
             this->runState = CANNED_MESSAGE_RUN_STATE_ACTIVE;
-            LOG_DEBUG("MOVE UP (%d):%s", this->currentMessageIndex, this->getCurrentMessage());
         }
     } else if (this->runState == CANNED_MESSAGE_RUN_STATE_ACTION_DOWN) {
         if (this->messagesCount > 0) {
@@ -1354,7 +1422,6 @@ int32_t CannedMessageModule::runOnce()
             this->freetext = "";
             this->cursor = 0;
             this->runState = CANNED_MESSAGE_RUN_STATE_ACTIVE;
-            LOG_DEBUG("MOVE DOWN (%d):%s", this->currentMessageIndex, this->getCurrentMessage());
         }
     } else if (this->runState == CANNED_MESSAGE_RUN_STATE_FREETEXT || this->runState == CANNED_MESSAGE_RUN_STATE_ACTIVE) {
         switch (this->payload) {
@@ -1404,7 +1471,7 @@ int32_t CannedMessageModule::runOnce()
                                          this->freetext.substring(this->cursor);
                     }
                     this->cursor++;
-                    uint16_t maxChars = meshtastic_Constants_DATA_PAYLOAD_LEN - (moduleConfig.canned_message.send_bell ? 1 : 0);
+                    const uint16_t maxChars = 200 - (moduleConfig.canned_message.send_bell ? 1 : 0);
                     if (this->freetext.length() > maxChars) {
                         this->cursor = maxChars;
                         this->freetext = this->freetext.substring(0, maxChars);
@@ -1972,51 +2039,10 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
             String msgWithCursor = this->drawWithCursor(this->freetext, this->cursor);
 
             // Tokenize input into (isEmote, token) pairs
-            std::vector<std::pair<bool, String>> tokens;
             const char *msg = msgWithCursor.c_str();
-            int msgLen = strlen(msg);
-            int pos = 0;
-            while (pos < msgLen) {
-                const graphics::Emote *foundEmote = nullptr;
-                int foundLen = 0;
-                for (int j = 0; j < graphics::numEmotes; j++) {
-                    const char *label = graphics::emotes[j].label;
-                    int labelLen = strlen(label);
-                    if (labelLen == 0)
-                        continue;
-                    if (strncmp(msg + pos, label, labelLen) == 0) {
-                        if (!foundEmote || labelLen > foundLen) {
-                            foundEmote = &graphics::emotes[j];
-                            foundLen = labelLen;
-                        }
-                    }
-                }
-                if (foundEmote) {
-                    tokens.emplace_back(true, String(foundEmote->label));
-                    pos += foundLen;
-                } else {
-                    // Find next emote
-                    int nextEmote = msgLen;
-                    for (int j = 0; j < graphics::numEmotes; j++) {
-                        const char *label = graphics::emotes[j].label;
-                        if (!label || !*label)
-                            continue;
-                        const char *found = strstr(msg + pos, label);
-                        if (found && (found - msg) < nextEmote) {
-                            nextEmote = found - msg;
-                        }
-                    }
-                    int textLen = (nextEmote > pos) ? (nextEmote - pos) : (msgLen - pos);
-                    if (textLen > 0) {
-                        tokens.emplace_back(false, String(msg + pos).substring(0, textLen));
-                        pos += textLen;
-                    } else {
-                        break;
-                    }
-                }
-            }
+            std::vector<std::pair<bool, String>> tokens = tokenizeMessageWithEmotes(msg);
 
-            // Advanced word-wrapping (emotes + text, split by word, wrap by char if needed)
+            // Advanced word-wrapping (emotes + text, split by word, wrap inside word if needed)
             std::vector<std::vector<std::pair<bool, String>>> lines;
             std::vector<std::pair<bool, String>> currentLine;
             int lineWidth = 0;
@@ -2041,7 +2067,7 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
                 } else {
                     // Text: split by words and wrap inside word if needed
                     String text = token.second;
-                    pos = 0;
+                    int pos = 0;
                     while (pos < static_cast<int>(text.length())) {
                         // Find next space (or end)
                         int spacePos = text.indexOf(' ', pos);
@@ -2087,18 +2113,8 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
                 int nextX = x;
                 for (const auto &token : line) {
                     if (token.first) {
-                        const graphics::Emote *emote = nullptr;
-                        for (int j = 0; j < graphics::numEmotes; j++) {
-                            if (token.second == graphics::emotes[j].label) {
-                                emote = &graphics::emotes[j];
-                                break;
-                            }
-                        }
-                        if (emote) {
-                            int emoteYOffset = (rowHeight - emote->height) / 2;
-                            display->drawXbm(nextX, yLine + emoteYOffset, emote->width, emote->height, emote->bitmap);
-                            nextX += emote->width + 2;
-                        }
+                        // Emote rendering centralized in helper
+                        renderEmote(display, nextX, yLine, rowHeight, token.second);
                     } else {
 #ifdef CJK_ENABLE
                         if (screen->containsCJKCharacters(token.second.c_str())) {
@@ -2174,51 +2190,7 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
             bool _highlight = (msgIdx == currentMessageIndex);
 
             // Multi-emote tokenization
-            std::vector<std::pair<bool, String>> tokens; // (isEmote, token)
-            int pos = 0;
-            int msgLen = strlen(msg);
-            while (pos < msgLen) {
-                const graphics::Emote *foundEmote = nullptr;
-                int foundLen = 0;
-
-                // Look for any emote label at this pos (prefer longest match)
-                for (int j = 0; j < graphics::numEmotes; j++) {
-                    const char *label = graphics::emotes[j].label;
-                    int labelLen = strlen(label);
-                    if (labelLen == 0)
-                        continue;
-                    if (strncmp(msg + pos, label, labelLen) == 0) {
-                        if (!foundEmote || labelLen > foundLen) {
-                            foundEmote = &graphics::emotes[j];
-                            foundLen = labelLen;
-                        }
-                    }
-                }
-                if (foundEmote) {
-                    tokens.emplace_back(true, String(foundEmote->label));
-                    pos += foundLen;
-                } else {
-                    // Find next emote
-                    int nextEmote = msgLen;
-                    for (int j = 0; j < graphics::numEmotes; j++) {
-                        const char *label = graphics::emotes[j].label;
-                        if (label[0] == 0)
-                            continue;
-                        const char *found = strstr(msg + pos, label);
-                        if (found && (found - msg) < nextEmote) {
-                            nextEmote = found - msg;
-                        }
-                    }
-                    int textLen = (nextEmote > pos) ? (nextEmote - pos) : (msgLen - pos);
-                    if (textLen > 0) {
-                        tokens.emplace_back(false, String(msg + pos).substring(0, textLen));
-                        pos += textLen;
-                    } else {
-                        break;
-                    }
-                }
-            }
-            // End multi-emote tokenization
+            std::vector<std::pair<bool, String>> tokens = tokenizeMessageWithEmotes(msg);
 
             // Vertically center based on rowHeight
             int textYOffset = (rowHeight - FONT_HEIGHT_SMALL) / 2;
@@ -2239,19 +2211,8 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
             // Draw all tokens left to right
             for (const auto &token : tokens) {
                 if (token.first) {
-                    // Emote
-                    const graphics::Emote *emote = nullptr;
-                    for (int j = 0; j < graphics::numEmotes; j++) {
-                        if (token.second == graphics::emotes[j].label) {
-                            emote = &graphics::emotes[j];
-                            break;
-                        }
-                    }
-                    if (emote) {
-                        int emoteYOffset = (rowHeight - emote->height) / 2;
-                        display->drawXbm(nextX, lineY + emoteYOffset, emote->width, emote->height, emote->bitmap);
-                        nextX += emote->width + 2;
-                    }
+                    // Emote rendering centralized in helper
+                    renderEmote(display, nextX, lineY, rowHeight, token.second);
                 } else {
 // Text
 #ifdef CJK_ENABLE
@@ -2285,6 +2246,48 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
             int scrollPos = listYOffset + (scrollHeight * topMsg) / messagesCount;
             display->fillRect(scrollTrackX, scrollPos, 4, barHeight);
         }
+    }
+}
+
+// Return SNR limit based on modem preset
+static float getSnrLimit(meshtastic_Config_LoRaConfig_ModemPreset preset)
+{
+    switch (preset) {
+    case meshtastic_Config_LoRaConfig_ModemPreset_LONG_SLOW:
+    case meshtastic_Config_LoRaConfig_ModemPreset_LONG_MODERATE:
+    case meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST:
+        return -6.0f;
+    case meshtastic_Config_LoRaConfig_ModemPreset_MEDIUM_SLOW:
+    case meshtastic_Config_LoRaConfig_ModemPreset_MEDIUM_FAST:
+        return -5.5f;
+    case meshtastic_Config_LoRaConfig_ModemPreset_SHORT_SLOW:
+    case meshtastic_Config_LoRaConfig_ModemPreset_SHORT_FAST:
+    case meshtastic_Config_LoRaConfig_ModemPreset_SHORT_TURBO:
+        return -4.5f;
+    default:
+        return -6.0f;
+    }
+}
+
+// Return Good/Fair/Bad label and set 1–5 bars based on SNR and RSSI
+static const char *getSignalGrade(float snr, int32_t rssi, float snrLimit, int &bars)
+{
+    // 5-bar logic: strength inside Good/Fair/Bad category
+    if (snr > snrLimit && rssi > -10) {
+        bars = 5; // very strong good
+        return "Good";
+    } else if (snr > snrLimit && rssi > -20) {
+        bars = 4; // normal good
+        return "Good";
+    } else if (snr > 0 && rssi > -50) {
+        bars = 3; // weaker good (on edge of fair)
+        return "Good";
+    } else if (snr > -10 && rssi > -100) {
+        bars = 2; // fair
+        return "Fair";
+    } else {
+        bars = 1; // bad
+        return "Bad";
     }
 }
 
@@ -2323,7 +2326,7 @@ ProcessMessage CannedMessageModule::handleReceived(const meshtastic_MeshPacket &
             } else if (isAck) {
                 // Relay ACK → mark as RELAYED, still no final ACK
                 this->ack = false;
-                waitingForAck = false; // don’t wait for more
+                waitingForAck = false;
             } else {
                 // Explicit failure
                 this->ack = false;
@@ -2352,24 +2355,45 @@ ProcessMessage CannedMessageModule::handleReceived(const meshtastic_MeshPacket &
 
             // Show overlay banner
             if (screen) {
+                auto *display = screen->getDisplayDevice();
                 graphics::BannerOverlayOptions opts;
                 static char buf[128];
 
                 const char *channelName = channels.getName(this->channel);
-                const char *nodeName = getNodeName(this->incoming);
+                const char *src = getNodeName(this->incoming);
+                char nodeName[48];
+                strncpy(nodeName, src, sizeof(nodeName) - 1);
+                nodeName[sizeof(nodeName) - 1] = '\0';
+
+                int availWidth = display->getWidth() - (graphics::isHighResolution ? 60 : 30);
+                if (availWidth < 0)
+                    availWidth = 0;
+
+                size_t origLen = strlen(nodeName);
+                while (nodeName[0] && display->getStringWidth(nodeName) > availWidth) {
+                    nodeName[strlen(nodeName) - 1] = '\0';
+                }
+                if (strlen(nodeName) < origLen) {
+                    strcat(nodeName, "...");
+                }
+
+                // Calculate signal quality and bars based on preset, SNR, and RSSI
+                float snrLimit = getSnrLimit(config.lora.modem_preset);
+                int bars = 0;
+                const char *qualityLabel = getSignalGrade(this->lastRxSnr, this->lastRxRssi, snrLimit, bars);
 
                 if (this->ack) {
                     if (this->lastSentNode == NODENUM_BROADCAST) {
-                        snprintf(buf, sizeof(buf), "Message sent to\n#%s\n\nSNR: %.1f dB RSSI: %d dBm",
-                                 (channelName && channelName[0]) ? channelName : "unknown", this->lastRxSnr, this->lastRxRssi);
+                        snprintf(buf, sizeof(buf), "Message sent to\n#%s\n\nSignal: %s",
+                                 (channelName && channelName[0]) ? channelName : "unknown", qualityLabel);
                     } else {
-                        snprintf(buf, sizeof(buf), "DM sent to\n@%s\n\nSNR: %.1f dB RSSI: %d dBm",
-                                 (nodeName && nodeName[0]) ? nodeName : "unknown", this->lastRxSnr, this->lastRxRssi);
+                        snprintf(buf, sizeof(buf), "DM sent to\n@%s\n\nSignal: %s",
+                                 (nodeName && nodeName[0]) ? nodeName : "unknown", qualityLabel);
                     }
                 } else if (isAck && !isFromDest) {
                     // Relay ACK banner
-                    snprintf(buf, sizeof(buf), "DM Relayed\n(Status Unknown)\n%s\n\nSNR: %.1f dB RSSI: %d dBm",
-                             (nodeName && nodeName[0]) ? nodeName : "unknown", this->lastRxSnr, this->lastRxRssi);
+                    snprintf(buf, sizeof(buf), "DM Relayed\n(Status Unknown)\n%s\n\nSignal: %s",
+                             (nodeName && nodeName[0]) ? nodeName : "unknown", qualityLabel);
                 } else {
                     if (this->lastSentNode == NODENUM_BROADCAST) {
                         snprintf(buf, sizeof(buf), "Message failed to\n#%s",
@@ -2381,7 +2405,8 @@ ProcessMessage CannedMessageModule::handleReceived(const meshtastic_MeshPacket &
 
                 opts.message = buf;
                 opts.durationMs = 3000;
-                screen->showOverlayBanner(opts);
+                graphics::bannerSignalBars = bars; // tell banner renderer how many bars to draw
+                screen->showOverlayBanner(opts);   // this triggers drawNotificationBox()
             }
         }
     }
