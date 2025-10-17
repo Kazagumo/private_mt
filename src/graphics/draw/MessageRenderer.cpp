@@ -631,18 +631,12 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         if (scrolledline - 1 >= 0) {
             scrolledline--;
             scrollY -= cachedHeights[scrolledline];
-            if (isHeader[scrolledline] && screen->containsCJKCharacters(cachedLines[scrolledline + 1].c_str())) {
-                scrollY += 1; // take 2px back,but without underline
-            }
         }
         break;
     case INPUT_BROKER_DOWN:
         isManualScroll = true;
         if (scrolledline + 1 <= cachedHeights.size() - 2) {
             scrollY += cachedHeights[scrolledline];
-            if (isHeader[scrolledline] && screen->containsCJKCharacters(cachedLines[scrolledline + 1].c_str())) {
-                scrollY -= 1; // take 2px back,but without underline
-            }
             scrolledline++;
         }
         break;
@@ -739,8 +733,11 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                 }
             } else {
                 // Render message line
-                if (i - 1 >= 0 && isHeader[i - 1] && screen->containsCJKCharacters(cachedLines[i].c_str())) {
-                    lineY += 2; // take 2px back
+                int finalY;
+                if (screen->containsCJKCharacters(cachedLines[i].c_str())) {
+                    finalY = lineY + 4; // take 2px back
+                } else {
+                    finalY = lineY;
                 }
                 if (isMine[i]) {
                     // int w = screen->getCJKwidth(display, cachedLines[i].c_str());
@@ -748,9 +745,9 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                     //  Calculate actual rendered width including emotes
                     int renderedWidth = getRenderedLineWidth(display, cachedLines[i], emotes, numEmotes);
                     int rightX = SCREEN_WIDTH - renderedWidth - 2; // -2 for slight padding from the edge
-                    drawStringWithEmotes(display, rightX, lineY, cachedLines[i], emotes, numEmotes);
+                    drawStringWithEmotes(display, rightX, finalY, cachedLines[i], emotes, numEmotes);
                 } else {
-                    drawStringWithEmotes(display, x, lineY, cachedLines[i], emotes, numEmotes);
+                    drawStringWithEmotes(display, x, finalY, cachedLines[i], emotes, numEmotes);
                 }
             }
         }
@@ -883,10 +880,6 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
 #ifdef CJK_ENABLE
                 if (screen->containsCJKCharacters(line.c_str())) {
                     lineHeight = 14;
-                    // Add block gap if previous line is header
-                    if (idx - 1 >= 0 && isHeaderVec[idx - 1]) {
-                        lineHeight += 2;
-                    }
                 } else {
                     lineHeight = desiredBody;
                 }
