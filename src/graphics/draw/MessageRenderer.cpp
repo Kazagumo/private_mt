@@ -718,17 +718,27 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                     // AckStatus::NONE → show nothing
                 }
 
-                // Draw underline just under header text
+// Draw underline just under header
+#ifdef CJK_ENABLE
+                int underlineY;
+                // there must be another line of message below header,so we don't check overflow.
+                if (screen->containsCJKCharacters(cachedLines[i + 1].c_str())) {
+                    underlineY = lineY + cachedHeights[i] - 1;
+                } else { // get reserved 1px back
+                    underlineY = lineY + cachedHeights[i];
+                }
+#else
                 int underlineY = lineY + cachedHeights[i];
+#endif
                 for (int px = 0; px < w; ++px) {
                     display->setPixel(headerX + px, underlineY);
                 }
             } else {
                 // Render message line
                 if (isMine[i]) {
-                    //int w = screen->getCJKwidth(display, cachedLines[i].c_str());
-                    //int rightX = SCREEN_WIDTH - w - 2;
-                    // Calculate actual rendered width including emotes
+                    // int w = screen->getCJKwidth(display, cachedLines[i].c_str());
+                    // int rightX = SCREEN_WIDTH - w - 2;
+                    //  Calculate actual rendered width including emotes
                     int renderedWidth = getRenderedLineWidth(display, cachedLines[i], emotes, numEmotes);
                     int rightX = SCREEN_WIDTH - renderedWidth - 2; // -2 for slight padding from the edge
                     drawStringWithEmotes(display, rightX, lineY, cachedLines[i], emotes, numEmotes);
@@ -853,6 +863,12 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
         if (isHeaderVec[idx]) {
             // Header line spacing
             lineHeight = baseHeight + HEADER_UNDERLINE_PIX + HEADER_UNDERLINE_GAP;
+#ifdef CJK_ENABLE
+            // Add block gap if next line is chinese words
+            if (idx + 1 < lines.size() && screen->containsCJKCharacters(lines[idx + 1].c_str())) {
+                lineHeight += 1;
+            }
+#endif
         } else {
             // Base spacing for normal lines
             int desiredBody = baseHeight + BODY_LINE_LEADING;
@@ -862,8 +878,16 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
                 int overshoot = std::max(0, tallestEmote - baseHeight);
                 lineHeight = desiredBody + overshoot + EMOTE_PADDING_BELOW;
             } else {
-                // Regular line: no emote → standard spacing
+// Regular line: no emote → standard spacing
+#ifdef CJK_ENABLE
+                if (screen->containsCJKCharacters(line.c_str())) {
+                    lineHeight = 14;
+                } else {
+                    lineHeight = desiredBody;
+                }
+#else
                 lineHeight = desiredBody;
+#endif
 
                 // If next line has an emote → add top padding *here*
                 if (nextHasEmote) {
@@ -908,15 +932,15 @@ void handleNewMessage(OLEDDisplay *display, const StoredMessage &sm, const mesht
             availWidth = 0;
 
         size_t origLen = strlen(longName);
-        #ifdef CJK_ENABLE
+#ifdef CJK_ENABLE
         while (longName[0] && screen->getCJKwidth(display, longName) > availWidth) {
             longName[strlen(longName) - 1] = '\0';
         }
-        #else
+#else
         while (longName[0] && display->getStringWidth(longName) > availWidth) {
             longName[strlen(longName) - 1] = '\0';
         }
-        #endif
+#endif
         if (strlen(longName) < origLen) {
             strcat(longName, "...");
         }

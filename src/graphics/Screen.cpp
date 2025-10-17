@@ -1739,9 +1739,9 @@ void Screen::drawCJKStringf(OLEDDisplay *display, int16_t x, int16_t y, char *bu
 // Draw a string containing CJK characters with automatic line wrapping
 void Screen::drawCJKStringMaxWidth(OLEDDisplay *display, int16_t x, int16_t y, int16_t maxWidth, const char *text)
 {
-    int lineHeight = max(CJK_CHAR_HEIGHT, FONT_HEIGHT_SMALL);
-    int screenHeight = display->getHeight();
-    int maxDisplayLines = (screenHeight - y) / lineHeight;
+    uint8_t lineHeight = max(CJK_CHAR_HEIGHT, FONT_HEIGHT_SMALL);
+    uint16_t screenHeight = display->getHeight();
+    uint8_t maxDisplayLines = (screenHeight - y) / lineHeight;
 
     // Break text into lines (do this once)
     if (textLines.empty()) {
