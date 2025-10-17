@@ -736,6 +736,8 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                 int finalY;
                 if (screen->containsCJKCharacters(cachedLines[i].c_str())) {
                     finalY = lineY + 4; // take 2px back
+                } else if (i - 1 >= 0 && screen->containsCJKCharacters(cachedLines[i - 1].c_str()) && !isHeader[i - 1]) {
+                    finalY = lineY + 2;
                 } else {
                     finalY = lineY;
                 }
