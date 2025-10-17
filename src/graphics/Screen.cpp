@@ -1485,8 +1485,6 @@ int Screen::handleInputEvent(const InputEvent *event)
             if (this->ui->getUiState()->currentFrame == framesetInfo.positions.textMessage) {
                 MessageRenderer::handleManualScroll(event->inputEvent);
                 setFastFramerate();
-            } else if (isManualScroll) {
-                isManualScroll = false;
             }
 #ifdef GAT562_MESH_TRACKER_PRO
             if (event->inputEvent == INPUT_BROKER_USER_PRESS) {

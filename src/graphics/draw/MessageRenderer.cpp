@@ -236,12 +236,14 @@ uint32_t scrollStartDelay = 0;
 uint32_t pauseStart = 0;
 bool waitingToReset = false;
 bool scrollStarted = false;
-static bool didReset = false; // <-- add here
+static bool didReset = false;
+uint16_t scrolledline = 0; // <-- add here
 
 // Reset scroll state when new messages arrive
 void resetScrollState()
 {
     scrollY = 0.0f;
+    scrolledline = 0;
     scrollStarted = false;
     waitingToReset = false;
     scrollStartDelay = millis();
@@ -626,11 +628,23 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     switch (event) {
     case INPUT_BROKER_UP:
         isManualScroll = true;
-        scrollY = scrollY - 14 < 0 ? 0 : scrollY - 14;
+        if (scrolledline - 1 >= 0) {
+            scrolledline--;
+            scrollY -= cachedHeights[scrolledline];
+            if (isHeader[scrolledline] && screen->containsCJKCharacters(cachedLines[scrolledline + 1].c_str())) {
+                scrollY += 1; // take 2px back,but without underline
+            }
+        }
         break;
     case INPUT_BROKER_DOWN:
         isManualScroll = true;
-        scrollY = scrollY + 14 > totalHeight - 30 ? totalHeight - 30 : scrollY + 14;
+        if (scrolledline + 1 <= cachedHeights.size() - 2) {
+            scrollY += cachedHeights[scrolledline];
+            if (isHeader[scrolledline] && screen->containsCJKCharacters(cachedLines[scrolledline + 1].c_str())) {
+                scrollY -= 1; // take 2px back,but without underline
+            }
+            scrolledline++;
+        }
         break;
     default:
         break;
@@ -718,23 +732,16 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                     // AckStatus::NONE → show nothing
                 }
 
-// Draw underline just under header
-#ifdef CJK_ENABLE
-                int underlineY;
-                // there must be another line of message below header,so we don't check overflow.
-                if (screen->containsCJKCharacters(cachedLines[i + 1].c_str())) {
-                    underlineY = lineY + cachedHeights[i] - 1;
-                } else { // get reserved 1px back
-                    underlineY = lineY + cachedHeights[i];
-                }
-#else
+                // Draw underline just under header
                 int underlineY = lineY + cachedHeights[i];
-#endif
                 for (int px = 0; px < w; ++px) {
                     display->setPixel(headerX + px, underlineY);
                 }
             } else {
                 // Render message line
+                if (i - 1 >= 0 && isHeader[i - 1] && screen->containsCJKCharacters(cachedLines[i].c_str())) {
+                    lineY += 2; // take 2px back
+                }
                 if (isMine[i]) {
                     // int w = screen->getCJKwidth(display, cachedLines[i].c_str());
                     // int rightX = SCREEN_WIDTH - w - 2;
@@ -863,12 +870,6 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
         if (isHeaderVec[idx]) {
             // Header line spacing
             lineHeight = baseHeight + HEADER_UNDERLINE_PIX + HEADER_UNDERLINE_GAP;
-#ifdef CJK_ENABLE
-            // Add block gap if next line is chinese words
-            if (idx + 1 < lines.size() && screen->containsCJKCharacters(lines[idx + 1].c_str())) {
-                lineHeight += 1;
-            }
-#endif
         } else {
             // Base spacing for normal lines
             int desiredBody = baseHeight + BODY_LINE_LEADING;
@@ -882,6 +883,10 @@ std::vector<int> calculateLineHeights(const std::vector<std::string> &lines, con
 #ifdef CJK_ENABLE
                 if (screen->containsCJKCharacters(line.c_str())) {
                     lineHeight = 14;
+                    // Add block gap if previous line is header
+                    if (idx - 1 >= 0 && isHeaderVec[idx - 1]) {
+                        lineHeight += 2;
+                    }
                 } else {
                     lineHeight = desiredBody;
                 }
