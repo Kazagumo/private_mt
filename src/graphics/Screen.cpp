@@ -844,6 +844,7 @@ int32_t Screen::runOnce()
             handleStartFirmwareUpdateScreen();
             break;
         case Cmd::STOP_ALERT_FRAME:
+            this->setFrames(graphics::Screen::FOCUS_PRESERVE);
             NotificationRenderer::pauseBanner = false;
             break;
         case Cmd::STOP_BOOT_SCREEN:
