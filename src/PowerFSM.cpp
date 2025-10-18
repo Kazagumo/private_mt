@@ -94,6 +94,7 @@ static void lsIdle()
     // LOG_INFO("lsIdle begin ls_secs=%u", getPref_ls_secs());
 
 #ifdef ARCH_ESP32
+    LOG_INFO("lsIdle begin ls_secs=%u", config.power.ls_secs);
 
     // Do we have more sleeping to do?
     if (secsSlept < config.power.ls_secs) {

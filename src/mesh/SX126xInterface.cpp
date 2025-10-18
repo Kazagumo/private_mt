@@ -395,7 +395,7 @@ template <typename T> int16_t SX126xInterface<T>::getNoise()
     return _noise_floor;
 }
 
-template <typename T> void SX126xInterface<T>::runcheck()
+template <typename T> bool SX126xInterface<T>::runcheck()
 {
     if (isReceiving == true && _num_floor_samples < NUM_NOISE_FLOOR_SAMPLES) {
         if (!isActivelyReceiving()) {
@@ -414,5 +414,7 @@ template <typename T> void SX126xInterface<T>::runcheck()
         _floor_sample_sum = 0;
         _num_floor_samples = 0;
         LOG_INFO("noise floor: %d dbi", (int)_noise_floor);
+        return true;
     }
+    return false;
 }

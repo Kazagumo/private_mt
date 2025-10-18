@@ -1783,7 +1783,7 @@ void Screen::drawCJKStringMaxWidth(OLEDDisplay *display, int16_t x, int16_t y, i
     }
 
     // Draw visible lines
-    int linesToShow = min(maxDisplayLines, (int)textLines.size() - currentLineStart);
+    int linesToShow = min((int)maxDisplayLines, (int)textLines.size() - currentLineStart);
     for (int i = 0; i < linesToShow; i++) {
         int lineY = y + (i * lineHeight);
         drawCJKString(display, x, lineY, textLines[currentLineStart + i].c_str());

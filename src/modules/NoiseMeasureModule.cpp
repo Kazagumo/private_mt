@@ -10,6 +10,9 @@ NoiseMeasureModule::NoiseMeasureModule()
 
 int32_t NoiseMeasureModule::runOnce()
 {
-    router->getInterface()->runcheck();
-    return 2000;
+    if (router->getInterface()->runcheck()) {
+        return 60 * 1000;
+    } else {
+        return 2 * 1000;
+    }
 }

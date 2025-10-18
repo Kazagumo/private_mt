@@ -26,7 +26,7 @@ template <class T> class SX126xInterface : public RadioLibInterface
     /// Prepare hardware for sleep.  Call this _only_ for deep sleep, not needed for light sleep.
     virtual bool sleep() override;
 
-    virtual void runcheck() override;
+    virtual bool runcheck() override;
     virtual int16_t getNoise() override;
     virtual int16_t getRSSI() override;
     virtual float getSNR() override;

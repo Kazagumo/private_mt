@@ -15,6 +15,9 @@
 #include "mesh/wifi/WiFiAPClient.h"
 #endif
 
+#if CONFIG_PM_ENABLE
+#include "esp_pm.h"
+#endif
 #include "esp_mac.h"
 #include "meshUtils.h"
 #include "sleep.h"
@@ -161,8 +164,6 @@ void esp32Setup()
     }
     WiFiOTA::initialize();
 #endif
-
-    // enableModemSleep();
 
 // Since we are turning on watchdogs rather late in the release schedule, we really don't want to catch any
 // false positives.  The wait-to-sleep timeout for shutting down radios is 30 secs, so pick 45 for now.

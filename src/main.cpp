@@ -1482,6 +1482,10 @@ void setup()
 
     // We manually run this to update the NodeStatus
     nodeDB->notifyObservers(true);
+
+#ifdef CONFIG_PM_ENABLE
+    enableModemSleep(); // after everything was done
+#endif
 }
 
 #endif

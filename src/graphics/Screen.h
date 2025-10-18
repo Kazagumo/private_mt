@@ -3,6 +3,7 @@
 #include "configuration.h"
 
 #include "detect/ScanI2C.h"
+#include "graphics/draw/NotificationRenderer.h"
 #include "mesh/generated/meshtastic/config.pb.h"
 #include <OLEDDisplay.h>
 #include <functional>
@@ -332,6 +333,8 @@ class Screen : public concurrency::OSThread
     {
         ScreenCmd cmd;
         cmd.cmd = Cmd::STOP_ALERT_FRAME;
+        NotificationRenderer::pauseBanner = false;
+        NotificationRenderer::resetBanner();
         enqueueCmd(cmd);
     }
 

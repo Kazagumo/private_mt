@@ -223,7 +223,7 @@ class RadioInterface
     virtual int16_t getNoise() { return 0; };
     virtual int16_t getRSSI() { return 0; };
     virtual float getSNR() { return 0.0; };
-    virtual void runcheck(){};
+    virtual bool runcheck() { return true; };
 
   protected:
     int8_t power = 17; // Set by applyModemConfig()
