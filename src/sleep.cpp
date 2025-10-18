@@ -528,7 +528,7 @@ void enableModemSleep()
 #endif
     esp32_config.min_freq_mhz = 80; // 10Mhz is minimum recommended
 #ifdef CONFIG_FREERTOS_USE_TICKLESS_IDLE
-    esp32_config.light_sleep_enable = true;
+    esp32_config.light_sleep_enable = false;
 #else
     esp32_config.light_sleep_enable = false;
 #endif
@@ -539,12 +539,10 @@ void enableModemSleep()
 void setWakeUp()
 {
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+    esp_sleep_disable_ext1_wakeup_io(0);
+    esp_sleep_disable_bt_wakeup();
+    esp_sleep_disable_wifi_wakeup();
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-
-    if (config.bluetooth.enabled)
-        esp_sleep_enable_bt_wakeup();
-    if (config.network.wifi_enabled)
-        esp_sleep_enable_wifi_wakeup();
 
     enableLoraInterrupt();
 
@@ -561,6 +559,11 @@ void setWakeUp()
 #endif
 
     esp_sleep_enable_gpio_wakeup();
+
+    if (config.bluetooth.enabled)
+        esp_sleep_enable_bt_wakeup();
+    if (config.network.wifi_enabled)
+        esp_sleep_enable_wifi_wakeup();
 }
 
 bool shouldLoraWake(uint32_t msecToWake)
