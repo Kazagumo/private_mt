@@ -403,7 +403,8 @@ template <typename T> bool SX126xInterface<T>::runcheck()
             if (rssi < _noise_floor + SAMPLING_THRESHOLD) { // only consider samples below current floor + sampling THRESHOLD
                 _num_floor_samples++;
                 _floor_sample_sum += rssi;
-                LOG_INFO("gathering noise floor sample %d/%d current rssi %d", NUM_NOISE_FLOOR_SAMPLES, _num_floor_samples, rssi);
+                // LOG_INFO("gathering noise floor sample %d/%d current rssi %d", NUM_NOISE_FLOOR_SAMPLES, _num_floor_samples,
+                // rssi);
             }
         }
     } else if (_num_floor_samples >= NUM_NOISE_FLOOR_SAMPLES && _floor_sample_sum != 0) {

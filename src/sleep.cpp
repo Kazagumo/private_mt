@@ -526,10 +526,41 @@ void enableModemSleep()
 #else
     esp32_config.max_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
 #endif
-    esp32_config.min_freq_mhz = 20; // 10Mhz is minimum recommended
+    esp32_config.min_freq_mhz = 80; // 10Mhz is minimum recommended
+#ifdef CONFIG_FREERTOS_USE_TICKLESS_IDLE
+    esp32_config.light_sleep_enable = true;
+#else
     esp32_config.light_sleep_enable = false;
+#endif
     int rv = esp_pm_configure(&esp32_config);
     LOG_DEBUG("Sleep request result %x", rv);
+}
+
+void setWakeUp()
+{
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+
+    if (config.bluetooth.enabled)
+        esp_sleep_enable_bt_wakeup();
+    if (config.network.wifi_enabled)
+        esp_sleep_enable_wifi_wakeup();
+
+    enableLoraInterrupt();
+
+    gpio_wakeup_enable((gpio_num_t)BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
+#if HAS_TRACKBALL
+    gpio_wakeup_enable((gpio_num_t)TB_DOWN, GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)TB_UP, GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)TB_LEFT, GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)TB_RIGHT, GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)TB_PRESS, GPIO_INTR_LOW_LEVEL);
+#endif
+#if HAS_TRACKBALL_I2C
+    gpio_wakeup_enable((gpio_num_t)TB_INT, GPIO_INTR_LOW_LEVEL);
+#endif
+
+    esp_sleep_enable_gpio_wakeup();
 }
 
 bool shouldLoraWake(uint32_t msecToWake)

@@ -669,11 +669,12 @@ void Screen::setOn(bool on, FrameCallback einkScreensaver)
     if (cardKbI2cImpl)
         cardKbI2cImpl->toggleBacklight(on);
 #endif
-    if (!on)
+    if (!on) {
         // We handle off commands immediately, because they might be called because the CPU is shutting down
         handleSetOn(false, einkScreensaver);
-    else
+    } else {
         enqueueCmd(ScreenCmd{.cmd = Cmd::SET_ON});
+    }
 }
 
 void Screen::forceDisplay(bool forceUiUpdate)

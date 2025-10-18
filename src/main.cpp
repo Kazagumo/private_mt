@@ -299,7 +299,7 @@ void lateInitVariant() {}
  */
 void printInfo()
 {
-    LOG_INFO("S:B:%d,%s,%s,%s", HW_VENDOR, optstr(APP_VERSION), optstr(APP_ENV), optstr(APP_REPO));
+    LOG_INFO("S:B:%d,%s,%s", HW_VENDOR, optstr(APP_VERSION), optstr(APP_ENV));
 }
 #ifndef PIO_UNIT_TESTING
 void setup()
@@ -853,11 +853,19 @@ void setup()
 #if defined(HW_SPI1_DEVICE)
     SPI1.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
     LOG_DEBUG("SPI1.begin(SCK=%d, MISO=%d, MOSI=%d, NSS=%d)", LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
+#ifdef ARCH_ESP32
+    SPI1.setFrequency(10000000);
+#else
     SPI1.setFrequency(4000000);
+#endif
 #else
     SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
     LOG_DEBUG("SPI.begin(SCK=%d, MISO=%d, MOSI=%d, NSS=%d)", LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
+#ifdef ARCH_ESP32
+    SPI.setFrequency(10000000);
+#else
     SPI.setFrequency(4000000);
+#endif
 #endif
 #endif
 

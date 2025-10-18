@@ -218,7 +218,6 @@ int32_t LuaScriptModule::runOnce()
     uint32_t delay = 0;
     if (isReady) {
         delay = lua["runOnce"]();
-        lua.collect_garbage();
         // LOG_INFO("lua delay: %d",delay);
     }
     switch (fileServerState) {

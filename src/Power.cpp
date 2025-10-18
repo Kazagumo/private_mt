@@ -343,7 +343,6 @@ class AnalogBatteryLevel : public HasBatteryLevel
             scaled = esp_adc_cal_raw_to_voltage(raw, adc_characs);
 #else
             ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, raw, &voltage));
-            log_e("raw: %d vol: %d", raw, voltage);
 #endif
             scaled = operativeAdcMultiplier * voltage;
 #else // block for all other platforms

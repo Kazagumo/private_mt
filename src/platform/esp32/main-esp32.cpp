@@ -118,6 +118,10 @@ void esp32Setup()
     pinMode(ADC_V, INPUT);
 #endif
 
+#ifdef CONFIG_FREERTOS_USE_TICKLESS_IDLE
+    setWakeUp();
+#endif
+
     LOG_DEBUG("Total heap: %d", ESP.getHeapSize());
     LOG_DEBUG("Free heap: %d", ESP.getFreeHeap());
     LOG_DEBUG("Total PSRAM: %d", ESP.getPsramSize());
