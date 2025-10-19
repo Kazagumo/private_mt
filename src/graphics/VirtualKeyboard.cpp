@@ -1,6 +1,7 @@
+#include "configuration.h"
+#if HAS_SCREEN
 #include "VirtualKeyboard.h"
 #include "ChineseMap_keyboard.h"
-#include "configuration.h"
 #include "graphics/Screen.h"
 #include "graphics/ScreenFonts.h"
 #include "graphics/SharedUIDisplay.h"
@@ -836,3 +837,4 @@ void VirtualKeyboard::showNextSelection()
 }
 
 } // namespace graphics
+#endif
