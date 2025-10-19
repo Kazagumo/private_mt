@@ -1669,6 +1669,9 @@ bool Screen::containsCJKCharacters(const char *text)
         int byteCount;
         uint16_t unicode = utf8ToUnicode(&text[i], byteCount);
         if (isCJKChar(unicode)) {
+            if (isSymbol(unicode)) {
+                return false; // return false even it's cjk.
+            }
             return true;
         }
         i += byteCount;

@@ -513,7 +513,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         char chanType[32] = "";
         if (currentMode == ThreadMode::ALL) {
             if (m.dest == NODENUM_BROADCAST) {
-                snprintf(chanType, sizeof(chanType), "(Ch%d)", m.channelIndex);
+                snprintf(chanType, sizeof(chanType), "#%s", channels.getName(m.channelIndex));
             } else {
                 snprintf(chanType, sizeof(chanType), "(DM)");
             }
@@ -561,6 +561,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
 
         // Build header line for this message
         meshtastic_NodeInfoLite *node = nodeDB->getMeshNode(m.sender);
+        meshtastic_NodeInfoLite *node_recipient = nodeDB->getMeshNode(m.dest);
 
         char senderBuf[48] = "???";
         if (node && node->has_user) {
@@ -571,9 +572,14 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         // If this is *our own* message, override sender to "Me"
         bool mine = (m.sender == nodeDB->getNodeNum());
         if (mine) {
-            strcpy(senderBuf, "Me");
+            if (node_recipient) {
+                strcpy(senderBuf, node_recipient->user.long_name);
+            } else {
+                snprintf(senderBuf, sizeof(senderBuf), "%X", m.dest);
+            }
         }
 
+        // Shrink Sender name if needed
         int availWidth = SCREEN_WIDTH - display->getStringWidth(timeBuf) - display->getStringWidth(chanType) -
                          display->getStringWidth(" @...") - 10;
         if (availWidth < 0)
@@ -592,7 +598,15 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         // Final header line
         char headerStr[96];
         if (mine) {
-            snprintf(headerStr, sizeof(headerStr), "%s %s", timeBuf, chanType);
+            if (currentMode == ThreadMode::ALL) {
+                if (strcmp(chanType, "(DM)") == 0) {
+                    snprintf(headerStr, sizeof(headerStr), "%s to %s", timeBuf, senderBuf);
+                } else {
+                    snprintf(headerStr, sizeof(headerStr), "%s to %s", timeBuf, chanType);
+                }
+            } else {
+                snprintf(headerStr, sizeof(headerStr), "%s", timeBuf);
+            }
         } else {
             snprintf(headerStr, sizeof(headerStr), "%s @%s %s", timeBuf, senderBuf, chanType);
         }
@@ -736,7 +750,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                 int finalY;
                 if (screen->containsCJKCharacters(cachedLines[i].c_str())) {
                     finalY = lineY + 4; // take 2px back
-                } else if (i - 1 >= 0 && screen->containsCJKCharacters(cachedLines[i - 1].c_str()) && !isHeader[i - 1]) {
+                } else if (screen->containsCJKCharacters(cachedLines[i - 1].c_str()) && !isHeader[i - 1]) {
                     finalY = lineY + 2;
                 } else {
                     finalY = lineY;
