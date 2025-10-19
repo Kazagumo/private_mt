@@ -9,6 +9,11 @@
 #include <FSCommon.h>
 #include <NonBlockingRtttl.h>
 #include <sol/sol.hpp>
+#ifdef CONFIG_PM_ENABLE
+#include "esp_pm.h"
+esp_pm_lock_handle_t cpufreqlock;
+esp_pm_lock_handle_t apbfreqlock;
+#endif
 
 inline void handle_panic(sol::optional<std::string> maybe_msg)
 {
@@ -97,6 +102,12 @@ uint32_t checkFileFlags(fs::FS &fs, String filename, uint32_t flags)
 
 bool startFilemanager()
 {
+#ifdef CONFIG_PM_ENABLE
+    esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX, 0, "filemanagerlock", &cpufreqlock);
+    esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "filemanagerlock", &apbfreqlock);
+    esp_pm_lock_acquire(cpufreqlock);
+    esp_pm_lock_acquire(apbfreqlock);
+#endif
     filemgr = new ESPFMfGK(filemanagerport);
     if (filemgr == nullptr) {
         LOG_INFO("alloc fault");
@@ -129,6 +140,12 @@ bool startFilemanager()
 
 void endFilemanager()
 {
+#ifdef CONFIG_PM_ENABLE
+    esp_pm_lock_release(cpufreqlock);
+    esp_pm_lock_release(apbfreqlock);
+    esp_pm_lock_delete(cpufreqlock);
+    esp_pm_lock_delete(apbfreqlock);
+#endif
     filemgr->end();
     delete filemgr;
     filemgr = nullptr;
@@ -207,6 +224,7 @@ ProcessMessage LuaScriptModule::handleReceived(const meshtastic_MeshPacket &mp)
         lua.safe_script("onReceive(mp)");
         LOG_INFO("[LuaEngine] memory usage %d", lua.memory_used());
         lua.safe_script("mp = nil");
+        lua.collect_garbage();
     }
     return ProcessMessage::CONTINUE;
 }

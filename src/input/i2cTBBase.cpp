@@ -77,12 +77,7 @@ int32_t i2cTBBase::runOnce()
     if (pressDetected && pressStartTime > 0) {
         uint32_t pressDuration = millis() - pressStartTime;
         bool buttonStillPressed = false;
-
-#if defined(T_DECK)
-        buttonStillPressed = (this->action == TB_ACTION_PRESSED);
-#else
         buttonStillPressed = !pcf8574->digitalRead(_pinPress);
-#endif
 
         if (!buttonStillPressed) {
             // Button released
@@ -150,26 +145,6 @@ int32_t i2cTBBase::runOnce()
         }
     }
 
-#if defined(T_DECK) // T-deck gets a super-simple debounce on trackball
-    if (this->action == TB_ACTION_PRESSED && !pressDetected) {
-        // Start long press detection
-        pressDetected = true;
-        pressStartTime = millis();
-        // Don't send event yet, wait to see if it's a long press
-    } else if (this->action == TB_ACTION_UP && lastEvent == TB_ACTION_UP) {
-        // LOG_DEBUG("Trackball event UP");
-        e.inputEvent = this->_eventUp;
-    } else if (this->action == TB_ACTION_DOWN && lastEvent == TB_ACTION_DOWN) {
-        // LOG_DEBUG("Trackball event DOWN");
-        e.inputEvent = this->_eventDown;
-    } else if (this->action == TB_ACTION_LEFT && lastEvent == TB_ACTION_LEFT) {
-        // LOG_DEBUG("Trackball event LEFT");
-        e.inputEvent = this->_eventLeft;
-    } else if (this->action == TB_ACTION_RIGHT && lastEvent == TB_ACTION_RIGHT) {
-        // LOG_DEBUG("Trackball event RIGHT");
-        e.inputEvent = this->_eventRight;
-    }
-#else
     if (this->action == TB_ACTION_PRESSED && !pcf8574->digitalRead(_pinPress) && !pressDetected) {
         // Start long press detection
         pressDetected = true;
@@ -197,7 +172,6 @@ int32_t i2cTBBase::runOnce()
     } else if (this->action == TB_ACTION_CANCEL) {
         e.inputEvent = INPUT_BROKER_CANCEL;
     }
-#endif
 
     if (e.inputEvent != INPUT_BROKER_NONE) {
         e.source = this->_originName;
