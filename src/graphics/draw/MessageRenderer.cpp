@@ -571,8 +571,8 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
 
         // If this is *our own* message, override senderBuf to who the recipient was
         bool mine = (m.sender == nodeDB->getNodeNum());
-        if (mine && node_recipient && node_recipient->has_user) {
-            if (node_recipient) {
+        if (mine) {
+            if (node_recipient && node_recipient->has_user) {
                 strcpy(senderBuf, node_recipient->user.long_name);
             } else {
                 snprintf(senderBuf, sizeof(senderBuf), "%X", m.dest);
