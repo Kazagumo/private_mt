@@ -258,6 +258,6 @@ int32_t LuaScriptModule::runOnce()
     if (delay > 0 && (fileServerState == FILESERVER_IDLE || fileServerState == FILESERVER_DISABLED)) {
         return delay;
     }
-    return 2;
+    return 1;
 }
 #endif

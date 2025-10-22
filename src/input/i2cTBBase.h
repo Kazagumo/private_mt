@@ -28,6 +28,7 @@ class i2cTBBase : public Observable<const InputEvent *>, public concurrency::OST
     void intUpHandler();
     void intLeftHandler();
     void intRightHandler();
+    void toggleGPS(bool stat);
     uint32_t lastTime = 0;
 
     virtual int32_t runOnce() override;

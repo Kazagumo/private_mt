@@ -52,6 +52,18 @@ uint8_t PCF8574::digitalRead(int pin)
     return (Wire.read() & (1 << pin)) ? HIGH : LOW;
 }
 
+void PCF8574::digitalWrite(int pin, int value)
+{
+    if (value == HIGH) {
+        _PinVal |= (1 << pin);
+    } else {
+        _PinVal &= ~(1 << pin);
+    }
+    Wire.beginTransmission(_address);
+    Wire.write(_PinVal);
+    Wire.endTransmission();
+}
+
 uint8_t PCF8574::readAll()
 {
     Wire.requestFrom(_address, 1);

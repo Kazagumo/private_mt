@@ -216,4 +216,9 @@ void i2cTBBase::intRightHandler()
     this->action = TB_ACTION_RIGHT;
 }
 
+void i2cTBBase::toggleGPS(bool stat)
+{
+    pcf8574->digitalWrite(7, stat);
+}
+
 #endif

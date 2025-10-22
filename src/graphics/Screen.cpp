@@ -1506,6 +1506,15 @@ int Screen::handleInputEvent(const InputEvent *event)
                 }
             } else
 #endif
+#ifdef TINYLORA
+                if (event->inputEvent == INPUT_BROKER_CANCEL) {
+                if (screen->screenStatus()) {
+                    setOn(false);
+                } else {
+                    setOn(true);
+                }
+            } else
+#endif
                 if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {
                 showPrevFrame();
             } else if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {

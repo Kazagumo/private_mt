@@ -49,7 +49,6 @@ extern Observable<esp_sleep_wakeup_cause_t> notifyLightSleepEnd;
 #endif
 
 void enableModemSleep();
-void setWakeUp();
 #ifdef ARCH_ESP32
 void enableLoraInterrupt();
 bool shouldLoraWake(uint32_t msecToWake);

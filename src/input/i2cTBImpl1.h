@@ -17,6 +17,7 @@ class PCF8574
     PCF8574();
     bool begin(int address);
     uint8_t digitalRead(int pin);
+    void digitalWrite(int pin, int value);
     uint8_t readAll();
 
   private:
