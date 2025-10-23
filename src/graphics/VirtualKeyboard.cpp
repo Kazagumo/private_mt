@@ -1,11 +1,12 @@
 #include "configuration.h"
 #if HAS_SCREEN
 #include "VirtualKeyboard.h"
-#include "ChineseMap_keyboard.h"
 #include "graphics/Screen.h"
 #include "graphics/ScreenFonts.h"
 #include "graphics/SharedUIDisplay.h"
 #include "main.h"
+#include "pinyin_trie_helpers.h"
+#include "pinyin_trie_static.h"
 #include <Arduino.h>
 #include <vector>
 
@@ -40,9 +41,8 @@ void VirtualKeyboard::initializeKeyboard()
     static_assert(LAYOUT_ROWS == KEYBOARD_ROWS, "LAYOUT rows must equal KEYBOARD_ROWS");
     static_assert(LAYOUT_COLS == KEYBOARD_COLS, "LAYOUT cols must equal KEYBOARD_COLS");
 
-    selectList = "";
-    selectListLayout = {};
-    selectListOffset = 0;
+    selectionPos = {};
+    resultsOffset = 0;
 
     // Initialize all keys to empty first
     for (int row = 0; row < LAYOUT_ROWS; row++) {
@@ -238,29 +238,34 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
 
     if (IMEStatus == ACTIVE && !inputText.empty()) {
         std::string currentPinyin = inputText.substr(processedWords, inputText.length() - processedWords);
-        uint8_t gotChars = 0;
-        uint8_t copiedBytes = 0;
-        selectList = "";
-        selectListLayout = {};
-        char *resultptr = PYSearch(currentPinyin.c_str());
-        std::string List = (resultptr == NULL) ? "" : resultptr;
-        selectListfulllen = List.length();
-        std::string str = List.substr(selectListOffset);
-        while (selectListfulllen != 0 && gotChars < 9) {
-            uint8_t bytesToCopy;
-            if (str.length() <= copiedBytes) {
+        int fulllen = 0;
+        // commit query when inputed pinyin changed.
+        std::vector<std::string> results = unified_search(currentPinyin, 60);
+        resultsfulllen = results.size() - 1;
+        displayList = {};
+        selectionPos = {};
+
+        // draw chinese select area.
+        for (int i = resultsOffset; i <= resultsfulllen; i++) {
+            if (results.empty()) {
+                selectableChars = 0;
                 break;
             }
-            bytesToCopy = getUtf8Length(str.c_str(), copiedBytes);
-            if (cursorCol == gotChars) {
-                uint8_t width = screen->getCJKwidth(display, selectList.c_str());
-                display->drawHorizontalLine(width, boxHeight, 12);     // display the current selected word.
-                display->drawHorizontalLine(width, boxHeight + 1, 12); // double underline cuz i'm short-sighted.
+            uint8_t lastpos = fulllen;
+            uint8_t width = screen->getCJKwidth(display, results[i].c_str());
+            fulllen += width + 6;
+            if (fulllen < 123) {
+                selectionPos.push_back(fulllen - 6);
+                displayList.push_back(results[i]);
+                screen->drawCJKString(display, lastpos, boxHeight - chineseArea, results[i].c_str());
+                if ((i) == cursorCol) {
+                    display->drawHorizontalLine(lastpos, boxHeight, width);     // display the current selected word.
+                    display->drawHorizontalLine(lastpos, boxHeight + 1, width); // double underline cuz i'm short-sighted.
+                }
+            } else {
+                selectableChars = i - 1;
+                break;
             }
-            selectList.append(str.substr(copiedBytes, bytesToCopy));
-            selectListLayout.push_back(bytesToCopy);
-            copiedBytes += bytesToCopy;
-            gotChars++;
         }
         display->drawString(display->width() - 10, boxHeight - chineseArea, ">");
         if (cursorCol == 9) {
@@ -269,8 +274,6 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
             display->drawHorizontalLine(display->width() - 10, boxHeight + 1,
                                         display->getStringWidth(">")); // double underline cuz i'm short-sighted.
         }
-        selectableChars = gotChars;
-        screen->drawCJKString(display, 0, boxHeight - chineseArea, selectList.c_str()); // FIXME:support multiple pages.
     }
 
     // Text rendering: multi-line if space allows (>= 2 lines), else single-line with leading ellipsis
@@ -675,14 +678,14 @@ void VirtualKeyboard::handleLongPress()
     }
 }
 
-void VirtualKeyboard::insertCharacter(char c)
-{
+void VirtualKeyboard::insertCharacter(char c) // should be renamed to
+{                                             // insertCharacters.
     if (IMEStatus == ACTIVE) {
-        if (c >= '1' && c <= '9' && !selectList.empty()) { // digits for chinese selection
+        if (c >= '1' && c <= '9' && !selectionPos.empty()) { // digits for chinese selection
             selectChineseChar(cursorCol);
         } else if (c >= 'a' && c <= 'z') { // pinyin input
-            if (selectListOffset != 0)
-                selectListOffset = 0; // reset offset when input more chars.
+            if (resultsOffset != 0)
+                resultsOffset = 0; // reset offset when input more chars.
             inputText += c;
             inputTextLayout.push_back(1);
         } else if (c == '0') {
@@ -721,9 +724,9 @@ void VirtualKeyboard::submitText()
     // Only submit if text is not empty
     if (!inputText.empty() && onTextEntered) {
         // Store callback and text to submit before clearing callback
-        selectList = "";
-        selectListLayout = {};
-        selectListOffset = 0;
+        displayList = {};
+        selectionPos = {};
+        resultsOffset = 0;
 
         std::function<void(const std::string &)> callback = onTextEntered;
         std::string textToSubmit = inputText;
@@ -776,9 +779,9 @@ bool VirtualKeyboard::isTimedOut() const
 void VirtualKeyboard::toggleIME()
 {
     if (IMEStatus == ACTIVE) { // reset vars
-        selectList = "";
-        selectListLayout = {};
-        selectListOffset = 0;
+        displayList = {};
+        selectionPos = {};
+        resultsOffset = 0;
     } else {
         processedWords = inputText.length(); // mark previous chars as processed
     }
@@ -805,6 +808,7 @@ uint8_t VirtualKeyboard::getUtf8Length(const char *c, uint8_t pos)
     return 0;
 }
 
+/*
 uint8_t VirtualKeyboard::getChineseChar(uint8_t c)
 {
     int ret = 0;
@@ -813,6 +817,7 @@ uint8_t VirtualKeyboard::getChineseChar(uint8_t c)
     }
     return ret;
 }
+*/
 
 void VirtualKeyboard::selectChineseChar(uint8_t chridx)
 {
@@ -821,19 +826,22 @@ void VirtualKeyboard::selectChineseChar(uint8_t chridx)
     int pinyinLength = inputText.length() - processedWords;
     inputText.erase(inputText.length() - pinyinLength, inputText.length());
     inputTextLayout.erase(inputTextLayout.end() - pinyinLength, inputTextLayout.end());
-    std::string word = selectList.substr(getChineseChar(chridx), selectListLayout[chridx]);
+    std::string word = displayList[chridx];
     inputText.append(word);
-    uint8_t charLength = getUtf8Length(word.c_str(), 0);
-    inputTextLayout.push_back(charLength);
-    processedWords += charLength;
-    selectListOffset = 0;
+    for (int len = 0; len < word.length();) {
+        uint8_t charLength = getUtf8Length(word.c_str(), len);
+        inputTextLayout.push_back(charLength);
+        processedWords += charLength;
+        len += charLength;
+    }
+    resultsOffset = 0;
 }
 
 void VirtualKeyboard::showNextSelection()
 {
-    uint8_t listlen = selectList.length();
-    uint8_t nextOffset = selectListOffset + listlen;
-    selectListOffset = nextOffset >= selectListfulllen ? 0 : nextOffset;
+    uint8_t listlen = displayList.size();
+    uint8_t nextOffset = resultsOffset + listlen;
+    resultsOffset = nextOffset >= resultsfulllen ? 0 : nextOffset;
 }
 
 } // namespace graphics

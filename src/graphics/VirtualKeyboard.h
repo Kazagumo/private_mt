@@ -66,11 +66,12 @@ class VirtualKeyboard
     enum _IMEStatus { ACTIVE, INACTIVE } IMEStatus = INACTIVE;
     uint8_t processedWords = 0;
     uint8_t selectableChars = 0;
-    int selectListfulllen = 0;
-    int selectListOffset = 0;
-    std::string selectList = "";
+    int resultsOffset;
+    // std::string stagedPinyin = "";
+    uint8_t resultsfulllen = 0;
+    std::vector<std::string> displayList;
+    std::vector<uint8_t> selectionPos;
     std::vector<uint8_t> inputTextLayout = {};
-    std::vector<uint8_t> selectListLayout = {};
 
     // Timeout management for auto-exit
     uint32_t lastActivityTime;
