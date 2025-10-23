@@ -26,6 +26,14 @@
 #include "modules/TraceRouteModule.h"
 #include <functional>
 
+#ifdef HAS_NEOPIXEL
+#include "AmbientLightLock.h"
+#ifdef ESP32C6
+#include "esp32-hal-periman.h"
+#endif
+#include <graphics/NeoPixel.h>
+#endif
+
 extern uint16_t TFT_MESH;
 
 namespace graphics
@@ -680,7 +688,7 @@ void menuHandler::messageViewModeMenu()
 
 void menuHandler::homeBaseMenu()
 {
-    enum optionsNumbers { Back, Backlight, Position, Preset, Freetext, Sleep, enumEnd };
+    enum optionsNumbers { Back, Backlight, Position, Preset, Flashlight, Freetext, Sleep, enumEnd };
 
     static const char *optionsArray[enumEnd] = {"Back"};
     static int optionsEnumArray[enumEnd] = {Back};
@@ -705,6 +713,10 @@ void menuHandler::homeBaseMenu()
     optionsArray[options] = "New Preset Msg";
 #endif
     optionsEnumArray[options++] = Preset;
+#if defined(HAS_NEOPIXEL)
+    optionsArray[options] = "Toggle Flashlight";
+    optionsEnumArray[options++] = Flashlight;
+#endif
     if (kb_found) {
         optionsArray[options] = "New Freetext Msg";
         optionsEnumArray[options++] = Freetext;
@@ -747,6 +759,18 @@ void menuHandler::homeBaseMenu()
             inputBroker->injectInputEvent(&event);
         } else if (selected == Preset) {
             cannedMessageModule->LaunchWithDestination(NODENUM_BROADCAST);
+        } else if (selected == Flashlight) {
+            if (isBusy) {
+                pixels.clear();
+                pixels.setBrightness(moduleConfig.ambient_lighting.current);
+                pixels.show();
+                isBusy = false;
+            } else {
+                pixels.setBrightness(220);
+                pixels.fill(pixels.Color(255, 255, 255), 0, NEOPIXEL_COUNT);
+                pixels.show();
+                isBusy = true;
+            }
         } else if (selected == Freetext) {
             cannedMessageModule->LaunchFreetextWithDestination(NODENUM_BROADCAST);
         }

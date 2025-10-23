@@ -545,13 +545,16 @@ ProcessMessage ExternalNotificationModule::handleReceived(const meshtastic_MeshP
 
             if (moduleConfig.external_notification.alert_message &&
                 (!ch.settings.has_module_settings || !ch.settings.module_settings.is_muted)) {
-                LOG_INFO("externalNotificationModule - Notification Module");
-                isNagging = true;
 #ifdef HAS_NEOPIXEL
-                isBusy = true;
+                if (!isBusy)
+                    isBusy = true;
+                else
+                    return ProcessMessage::CONTINUE;
                 senderhex.hex = mp.from;
                 pixels.setBrightness(moduleConfig.ambient_lighting.current);
 #endif
+                LOG_INFO("externalNotificationModule - Notification Module");
+                isNagging = true;
                 setExternalState(0, true);
                 if (moduleConfig.external_notification.nag_timeout) {
                     nagCycleCutoff = millis() + moduleConfig.external_notification.nag_timeout * 1000;
