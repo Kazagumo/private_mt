@@ -14,8 +14,8 @@ struct ButtonConfig {
     uint32_t pullupSense = 0;
     voidFuncPtr intRoutine = nullptr;
     input_broker_event singlePress = INPUT_BROKER_NONE;
-    input_broker_event longPress = INPUT_BROKER_NONE;
-    uint16_t longPressTime = 500;
+    input_broker_event longPress = INPUT_BROKER_ALT_PRESS;
+    uint16_t longPressTime = 300;
     input_broker_event doublePress = INPUT_BROKER_NONE;
     input_broker_event longLongPress = INPUT_BROKER_NONE;
     uint16_t longLongPressTime = 3900;

@@ -63,7 +63,7 @@ int32_t i2cTBBase::runOnce()
         case 0b10111111: // P6 cancel
             this->action = TB_ACTION_CANCEL;
             break;
-        case 0b01111111: // P7
+        case 0b01111111: // P7 GPS
             break;
         default:
             break;

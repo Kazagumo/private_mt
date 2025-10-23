@@ -1112,7 +1112,7 @@ void setup()
             mainDelay.interruptFromISR(&higherWake);
         };
         userConfig.singlePress = INPUT_BROKER_USER_PRESS;
-        userConfig.longPress = INPUT_BROKER_SELECT;
+        userConfig.longPress = INPUT_BROKER_ALT_PRESS;
         userConfig.longPressTime = 500;
         userConfig.longLongPress = INPUT_BROKER_SHUTDOWN;
         UserButtonThread->initButton(userConfig);

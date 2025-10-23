@@ -47,6 +47,8 @@ class VirtualKeyboard
     // Chinese IME
     void toggleIME();
 
+    void deleteCharacter();
+
   private:
     static const uint8_t KEYBOARD_ROWS = 4;
     static const uint8_t KEYBOARD_COLS = 11;
@@ -87,7 +89,6 @@ class VirtualKeyboard
 
     char getCharForKey(const VirtualKey &key, bool isLongPress = false);
     void insertCharacter(char c);
-    void deleteCharacter();
     void submitText();
     uint8_t getUtf8Length(const char *c, uint8_t pos);
     uint8_t getChineseChar(uint8_t c);

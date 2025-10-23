@@ -258,7 +258,7 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
                 selectionPos.push_back(fulllen - 6);
                 displayList.push_back(results[i]);
                 screen->drawCJKString(display, lastpos, boxHeight - chineseArea, results[i].c_str());
-                if ((i) == cursorCol) {
+                if ((i - resultsOffset) == cursorCol) {
                     display->drawHorizontalLine(lastpos, boxHeight, width);     // display the current selected word.
                     display->drawHorizontalLine(lastpos, boxHeight + 1, width); // double underline cuz i'm short-sighted.
                 }
@@ -842,6 +842,7 @@ void VirtualKeyboard::showNextSelection()
     uint8_t listlen = displayList.size();
     uint8_t nextOffset = resultsOffset + listlen;
     resultsOffset = nextOffset >= resultsfulllen ? 0 : nextOffset;
+    selectableChars = 0;
 }
 
 } // namespace graphics

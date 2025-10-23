@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+std::string lastPinyin = "";
+std::vector<std::string> lastresult = {};
+
 // Platform-aware accessors for WORDS_DATA, WORDS_OFFSETS, WORDS_WEIGHT
 // On AVR, WORDS_DATA/WORDS_OFFSETS/WORDS_WEIGHT are in PROGMEM and must be read via pgm_read_*.
 #if defined(ARCH_ESP32)
@@ -649,16 +652,17 @@ static inline int unified_search(const char *input, uint32_t *out_word_idx, int 
 // C++-friendly overload: accept std::string and return vector<string> of top matches (words only)
 static inline std::vector<std::string> unified_search(const std::string &input, int max_out = 20)
 {
-    std::vector<std::string> out;
-    if (max_out <= 0)
-        return out;
+    if (input == lastPinyin)
+        return lastresult;
+    lastresult.clear();
     std::vector<uint32_t> idxs;
     idxs.resize(max_out > 0 ? max_out : 1);
     int got = unified_search(input.c_str(), idxs.data(), max_out);
     for (int i = 0; i < got; i++) {
-        std::vector<char> tmp_buf(256);
+        std::vector<char> tmp_buf(64);
         get_word_ptr_buf(idxs[i], tmp_buf.data(), tmp_buf.size());
-        out.emplace_back(std::string(tmp_buf.data()));
+        lastresult.emplace_back(std::string(tmp_buf.data()));
     }
-    return out;
+    lastPinyin = input;
+    return lastresult;
 }
