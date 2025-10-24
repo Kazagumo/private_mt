@@ -759,6 +759,7 @@ void menuHandler::homeBaseMenu()
             inputBroker->injectInputEvent(&event);
         } else if (selected == Preset) {
             cannedMessageModule->LaunchWithDestination(NODENUM_BROADCAST);
+#if defined(HAS_NEOPIXEL)
         } else if (selected == Flashlight) {
             if (isBusy) {
                 pixels.clear();
@@ -771,6 +772,7 @@ void menuHandler::homeBaseMenu()
                 pixels.show();
                 isBusy = true;
             }
+#endif
         } else if (selected == Freetext) {
             cannedMessageModule->LaunchFreetextWithDestination(NODENUM_BROADCAST);
         }
