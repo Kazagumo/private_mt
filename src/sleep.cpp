@@ -528,11 +528,12 @@ void enableModemSleep()
 #endif
     esp32_config.min_freq_mhz = 80; // 10Mhz is minimum recommended
 #ifdef CONFIG_FREERTOS_USE_TICKLESS_IDLE
-    esp32_config.light_sleep_enable = false;
+    esp32_config.light_sleep_enable = true;
 #else
     esp32_config.light_sleep_enable = false;
 #endif
     int rv = esp_pm_configure(&esp32_config);
+    enableLoraInterrupt();
     LOG_DEBUG("Sleep request result %x", rv);
 }
 
