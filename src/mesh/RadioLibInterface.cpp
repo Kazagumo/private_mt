@@ -18,13 +18,15 @@
 void turnOffLights()
 {
     pixels.setBrightness(0);
+    pixels.fill(pixels.Color(0, 0, 0), 0, NEOPIXEL_COUNT);
     pixels.show();
 }
 
-void showLoraActivity(uint8_t r,uint8_t g,uint8_t b){
+void showLoraActivity(uint8_t r, uint8_t g, uint8_t b)
+{
     if (!isBusy) {
         pixels.setBrightness(230);
-        pixels.fill(pixels.Color(r,g,b),0, NEOPIXEL_COUNT);
+        pixels.fill(pixels.Color(r, g, b), 0, NEOPIXEL_COUNT);
         pixels.show();
         turnOffLights();
     }
@@ -453,9 +455,9 @@ void RadioLibInterface::handleReceiveInterrupt()
 
     isReceiving = false;
 
-    #ifdef HAS_NEOPIXEL
-    showLoraActivity(0,255,0);
-    #endif
+#ifdef HAS_NEOPIXEL
+    showLoraActivity(0, 255, 0);
+#endif
 
     // read the number of actually received bytes
     size_t length = iface->getPacketLength();
@@ -583,9 +585,9 @@ bool RadioLibInterface::startSend(meshtastic_MeshPacket *txp)
             enableInterrupt(isrTxLevel0);
             lastTxStart = millis();
             printPacket("Started Tx", txp);
-            #ifdef HAS_NEOPIXEL
-            showLoraActivity(255,0,0);
-            #endif
+#ifdef HAS_NEOPIXEL
+            showLoraActivity(255, 0, 0);
+#endif
         }
 
         return res == RADIOLIB_ERR_NONE;
