@@ -3,10 +3,10 @@
 #include "concurrency/OSThread.h"
 #include "configuration.h"
 
-#ifdef ARCH_ESP32
+#if defined(ARCH_ESP32) && defined(TINYLORA)
 // "legacy adc calibration driver is deprecated, please migrate to use esp_adc/adc_cali.h and esp_adc/adc_cali_scheme.h
-// #include <esp_adc_cal.h>
-// #include <soc/adc_channel.h>
+#include <esp_adc_cal.h>
+#include <soc/adc_channel.h>
 #endif
 
 #ifndef NUM_OCV_POINTS

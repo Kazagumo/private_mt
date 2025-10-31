@@ -1,5 +1,9 @@
 #pragma once
+#ifdef EXCLUDE_PY
+#include "pinyin_trie_exclude.h"
+#else
 #include "pinyin_trie_static.h"
+#endif
 #include <climits>
 #include <cstdint>
 #include <cstring>

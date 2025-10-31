@@ -6,7 +6,6 @@
 #include "graphics/SharedUIDisplay.h"
 #include "main.h"
 #include "pinyin_trie_helpers.h"
-#include "pinyin_trie_static.h"
 #include <Arduino.h>
 #include <vector>
 
