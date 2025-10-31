@@ -19,6 +19,7 @@ void turnOffLights()
 {
     pixels.setBrightness(0);
     pixels.fill(pixels.Color(0, 0, 0), 0, NEOPIXEL_COUNT);
+    sleep(0.001);
     pixels.show();
 }
 
