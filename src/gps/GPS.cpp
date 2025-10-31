@@ -860,11 +860,7 @@ void GPS::setPowerState(GPSPowerState newState, uint32_t sleepTime)
         writePinStandby(true);                                      // Standby (pin): asleep (not awake)
         setPowerUBLOX(false, sleepTime);                            // Standby (UBLOX): asleep, timed
 #ifdef GNSS_AIROHA
-#if TRACKBALL_I2C_GPS
-        i2cTBImpl1->toggleGPS(LOW);
-#else
         digitalWrite(PIN_GPS_EN, LOW);
-#endif
 #endif
         break;
 
@@ -876,11 +872,7 @@ void GPS::setPowerState(GPSPowerState newState, uint32_t sleepTime)
         writePinStandby(true);                                      // Standby (pin): asleep
         setPowerUBLOX(false, 0);                                    // Standby (UBLOX): asleep, indefinitely
 #ifdef GNSS_AIROHA
-#if TRACKBALL_I2C_GPS
-        i2cTBImpl1->toggleGPS(LOW);
-#else
         digitalWrite(PIN_GPS_EN, LOW);
-#endif
 #endif
         break;
     }
@@ -894,12 +886,8 @@ void GPS::writePinEN(bool on)
         (rotaryEncoderInterruptImpl1 || upDownInterruptImpl1))
         return;
 
-// Write and log
-#if TRACKBALL_I2C_GPS
-    i2cTBImpl1->toggleGPS(on);
-#else
+    // Write and log
     enablePin->set(on);
-#endif
 #ifdef GPS_DEBUG
     LOG_DEBUG("Pin EN %s", on == HIGH ? "HI" : "LOW");
 #endif
@@ -1889,11 +1877,7 @@ void GPS::toggleGpsMode()
 #ifdef GNSS_AIROHA
         if (powerState == GPS_ACTIVE) {
             LOG_DEBUG("User power Off GPS");
-#if TRACKBALL_I2C_GPS
-            i2cTBImpl1->toggleGPS(LOW);
-#else
             digitalWrite(PIN_GPS_EN, LOW);
-#endif
         }
 #endif
         disable();

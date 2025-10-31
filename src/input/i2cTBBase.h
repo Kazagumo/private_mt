@@ -28,7 +28,6 @@ class i2cTBBase : public Observable<const InputEvent *>, public concurrency::OST
     void intUpHandler();
     void intLeftHandler();
     void intRightHandler();
-    void toggleGPS(bool stat);
     uint32_t lastTime = 0;
 
     virtual int32_t runOnce() override;
@@ -43,6 +42,7 @@ class i2cTBBase : public Observable<const InputEvent *>, public concurrency::OST
         TB_ACTION_LEFT,
         TB_ACTION_RIGHT,
         TB_ACTION_USER,
+        TB_ACTION_USER_LONG,
         TB_ACTION_CANCEL,
 
     };
@@ -56,12 +56,15 @@ class i2cTBBase : public Observable<const InputEvent *>, public concurrency::OST
 
     // Long press detection for press button
     uint32_t pressStartTime = 0;
+    uint32_t usrpressStartTime = 0;
     uint32_t directionStartTime = 0;
     uint8_t directionInterval = 0;
     std::atomic<bool> pcf8574IntFlag;
     bool pressDetected = false;
+    bool usrpressDetected = false;
     bool directionDetected = false;
     uint32_t lastPressKeyTime = 0;
+    uint32_t usrlastPressKeyTime = 0;
     uint32_t lastDirectionPressEventTime = 0;
     static const uint32_t LONG_PRESS_DURATION = 300;        // ms
     static const uint32_t LONG_PRESS_REPEAT_INTERVAL = 300; // ms - interval between repeated long press events

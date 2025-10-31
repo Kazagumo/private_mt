@@ -24,8 +24,10 @@ void i2cTBBase::init(uint8_t pinInt, input_broker_event eventDown, input_broker_
 
     this->pcf8574IntFlag = false;
 
-    pcf8574 = new PCF8574();
-    pcf8574->begin(0x20);
+    if (pcf8574 == nullptr) {
+        pcf8574 = new PCF8574();
+        pcf8574->begin(0x20);
+    }
 
     if (pinInt != 255) {
         pinMode(pinInt, INPUT_PULLUP);
@@ -72,6 +74,35 @@ int32_t i2cTBBase::runOnce()
 
     InputEvent e = {};
     e.inputEvent = INPUT_BROKER_NONE;
+
+    // Handle long press detection for usr button
+    if (usrpressDetected && usrpressStartTime > 0) {
+        uint32_t pressDuration = millis() - usrpressStartTime;
+        bool buttonStillPressed = false;
+        buttonStillPressed = !pcf8574->digitalRead(5);
+
+        if (!buttonStillPressed) {
+            // Button released
+            if (pressDuration < LONG_PRESS_DURATION) {
+                // Short press
+                e.inputEvent = INPUT_BROKER_USER_PRESS;
+            }
+            // Reset state
+            usrpressDetected = false;
+            usrpressStartTime = 0;
+            usrlastPressKeyTime = 0;
+            this->action = TB_ACTION_NONE;
+        } else if (pressDuration >= LONG_PRESS_DURATION) {
+            // Long press detected
+            uint32_t currentTime = millis();
+            // Only trigger long press event if enough time has passed since the last one
+            if (usrlastPressKeyTime == 0 || (currentTime - usrlastPressKeyTime) >= LONG_PRESS_REPEAT_INTERVAL) {
+                e.inputEvent = INPUT_BROKER_ALT_PRESS;
+                usrlastPressKeyTime = currentTime;
+            }
+            this->action = TB_ACTION_USER_LONG;
+        }
+    }
 
     // Handle long press detection for press button
     if (pressDetected && pressStartTime > 0) {
@@ -168,7 +199,8 @@ int32_t i2cTBBase::runOnce()
         directionStartTime = millis();
         e.inputEvent = this->_eventRight;
     } else if (this->action == TB_ACTION_USER) {
-        e.inputEvent = INPUT_BROKER_USER_PRESS;
+        usrpressDetected = true;
+        usrpressStartTime = millis();
     } else if (this->action == TB_ACTION_CANCEL) {
         e.inputEvent = INPUT_BROKER_CANCEL;
     }
@@ -214,11 +246,6 @@ void i2cTBBase::intLeftHandler()
 void i2cTBBase::intRightHandler()
 {
     this->action = TB_ACTION_RIGHT;
-}
-
-void i2cTBBase::toggleGPS(bool stat)
-{
-    pcf8574->digitalWrite(7, stat);
 }
 
 #endif

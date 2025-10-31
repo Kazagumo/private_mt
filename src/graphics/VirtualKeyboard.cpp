@@ -253,7 +253,7 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
             uint8_t lastpos = fulllen;
             uint8_t width = screen->getCJKwidth(display, results[i].c_str());
             fulllen += width + 6;
-            if (fulllen < 123) {
+            if (fulllen < display->getWidth() - 5) {
                 selectionPos.push_back(fulllen - 6);
                 displayList.push_back(results[i]);
                 screen->drawCJKString(display, lastpos, boxHeight - chineseArea, results[i].c_str());
