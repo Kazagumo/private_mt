@@ -956,11 +956,13 @@ void UIRenderer::drawIconScreen(const char *upperMsg, OLEDDisplay *display, OLED
 
     display->setFont(FONT_MEDIUM);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
-    #ifdef GAT562
+#if defined(GAT562)
     const char *title = "GAT-IoT";
-    #else
+#elif defined(TINYLORA)
+    const char *title = "TinyLora C3";
+#else
     const char *title = "usugumo c6";
-    #endif
+#endif
     display->drawString(x + getStringCenteredX(title), y + SCREEN_HEIGHT - FONT_HEIGHT_MEDIUM, title);
     display->setFont(FONT_SMALL);
     // Draw region in upper left
@@ -1090,9 +1092,11 @@ void UIRenderer::drawCompassAndLocationScreen(OLEDDisplay *display, OLEDDisplayU
         char altitudeLine[32] = {0};
         int32_t alt = geoCoord.getAltitude();
         if (config.display.units == meshtastic_Config_DisplayConfig_DisplayUnits_IMPERIAL) {
-            if(alt) snprintf(altitudeLine, sizeof(altitudeLine), "Alt: %.0fft", alt * METERS_TO_FEET);
+            if (alt)
+                snprintf(altitudeLine, sizeof(altitudeLine), "Alt: %.0fft", alt * METERS_TO_FEET);
         } else {
-            if(alt) snprintf(altitudeLine, sizeof(altitudeLine), "Alt: %.0im", alt);
+            if (alt)
+                snprintf(altitudeLine, sizeof(altitudeLine), "Alt: %.0im", alt);
         }
         display->drawString(x, getTextPositions(display)[line++], altitudeLine);
     }
