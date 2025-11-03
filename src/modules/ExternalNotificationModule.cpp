@@ -104,9 +104,7 @@ int32_t ExternalNotificationModule::runOnce()
 #endif
         if ((nagCycleCutoff < millis()) && !isRtttlPlaying) {
             // Turn off external notification immediately when timeout is reached, regardless of song state
-            nagCycleCutoff = UINT32_MAX;
             ExternalNotificationModule::stopNow();
-            isNagging = false;
             return INT32_MAX; // save cycles till we're needed again
         }
 
@@ -334,6 +332,8 @@ bool ExternalNotificationModule::nagging()
 void ExternalNotificationModule::stopNow()
 {
     LOG_INFO("Turning off external notification: ");
+    nagCycleCutoff = UINT32_MAX;
+    isNagging = false;
     LOG_INFO("Stop RTTTL playback");
     rtttl::stop();
     #ifdef HAS_NEOPIXEL
