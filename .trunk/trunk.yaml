@@ -33,6 +33,7 @@ lint:
   ignore:
     - linters: [ALL]
       paths:
+        - managed_components/**
         - bin/**
 runtimes:
   enabled:
