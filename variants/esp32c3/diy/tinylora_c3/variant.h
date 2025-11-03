@@ -6,19 +6,29 @@
 
 // I2C
 #define WIRE_INTERFACES_COUNT 1
-#define I2C_SDA 1
-#define I2C_SCL 0
+#define I2C_SDA 0
+#define I2C_SCL 1
+
+// ADC
+#define HAS_BATTERY
+/*
+#define BATTERY_PIN 2 // A battery voltage measurement pin, voltage divider connected here to measure battery voltage
+#define ADC_CHANNEL ADC1_CHANNEL_2
+#define ADC_MULTIPLIER 2
+*/
 
 // Trackball
 #define HAS_TRACKBALL_I2C 1
 #define TB_INT 9
 
-// Screen & GPS are not present.
+// Screen & GPS
 #define HAS_SCREEN 1
 #define USE_SSD1306
-#define HAS_GPS 0
-#undef GPS_RX_PIN
-#undef GPS_TX_PIN
+#define HAS_GPS 1
+#define GPS_RX_PIN 21
+#define GPS_TX_PIN 20
+#define PIN_GPS_EN 2
+#define GPS_EN_ACTIVE 1
 
 // LoRa chips
 #define USE_LLCC68
