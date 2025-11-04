@@ -332,8 +332,6 @@ bool ExternalNotificationModule::nagging()
 void ExternalNotificationModule::stopNow()
 {
     LOG_INFO("Turning off external notification: ");
-    nagCycleCutoff = UINT32_MAX;
-    isNagging = false;
     LOG_INFO("Stop RTTTL playback");
     rtttl::stop();
 #ifdef HAS_NEOPIXEL
