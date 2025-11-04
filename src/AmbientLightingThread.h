@@ -99,13 +99,13 @@ class AmbientLightingThread : public concurrency::OSThread
                 if (isBusy) {
                     return 500;
                 }
-                #ifdef ESP32C6
-                if (unlikely((NEOPIXEL_DATA) != ESP32_BUS_TYPE_RMT_TX)){
+#ifdef ESP32C6
+                if (unlikely((NEOPIXEL_DATA) != ESP32_BUS_TYPE_RMT_TX)) {
                     rmtInit(NEOPIXEL_DATA, RMT_TX_MODE, RMT_MEM_NUM_BLOCKS_1, 10000000);
                 }
-                #endif
-                if (screen->screenStatus()){
-                    if (pixels.getBrightness() != 0){
+#endif
+                if (screen->screenStatus()) {
+                    if (pixels.getBrightness() != 0) {
                         pixels.setBrightness(0);
                         pixels.show();
                         current = 0;

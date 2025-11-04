@@ -336,10 +336,10 @@ void ExternalNotificationModule::stopNow()
     isNagging = false;
     LOG_INFO("Stop RTTTL playback");
     rtttl::stop();
-    #ifdef HAS_NEOPIXEL
-            current = moduleConfig.ambient_lighting.current * 2;
-            isBusy = false;
-    #endif
+#ifdef HAS_NEOPIXEL
+    current = moduleConfig.ambient_lighting.current * 2;
+    isBusy = false;
+#endif
 #ifdef HAS_I2S
     LOG_INFO("Stop audioThread playback");
     if (audioThread->isPlaying())

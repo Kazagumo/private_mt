@@ -55,7 +55,7 @@ class RotaryEncoderInterruptBase : public Observable<const InputEvent *>, public
     uint32_t lastPressLongEventTime = 0;
     unsigned long lastPressKeyTime = 0;
     // Long press detection for press button
-    static const uint32_t LONG_PRESS_DURATION = 300;        // ms
+    static const uint32_t LONG_PRESS_DURATION = 300;      // ms
     static const uint32_t LONG_PRESS_REPEAT_INTERVAL = 0; // ms - interval between repeated long press events
     const unsigned long pressDebounceMs = 200;            // ms
 };
