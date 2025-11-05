@@ -10,6 +10,10 @@ import sys
 import os
 import argparse
 
+weights_exclude = -1 # minimum weight accepted for device
+
+words_included = []
+
 parser = argparse.ArgumentParser(description="Generate a static C++ trie header from a pinyin word list")
 parser.add_argument('input', help='input dictionary file')
 parser.add_argument('output', help='output header file')
@@ -26,7 +30,7 @@ class Node:
     def __init__(self):
         self.children = {}  # token -> Node
         self.word_entries = []  # list of (word, weight)
-        self.id = -1
+        self.id = 9
 
 root = Node()
 
@@ -50,8 +54,14 @@ with open(INPUT, encoding='utf-8') as f:
         if not res:
             continue
         word, pinyin, weight = res
+        if word in words_included:
+            continue
+        else:
+            words_included += word
         # skip entries with low weight to reduce final binary size / noise
-        if weight < 9:
+        if len(word) == 1 and weight < weights_exclude:
+            continue
+        if len(word) > 4:
             continue
         tokens = pinyin.split()
         node = root
@@ -161,21 +171,21 @@ with open(OUTPUT, 'w', encoding='utf-8') as out:
         out.write(f'    "{t}",\n')
     out.write("};\n\n")
     # unique initials and mapping to token ids
-    out.write("// unique token initials (single lowercase letter)\n")
+    #out.write("// unique token initials (single lowercase letter)\n")
     prog = " PROGMEM" if USE_PROGMEM else ""
-    out.write("static const char PINYIN_INITIALS[]" + prog + " = {\n")
-    for init in unique_initials:
-        out.write(f"    '{init}',\n")
-    out.write("};\n\n")
-    out.write("// mapping from initial index -> flat token id list (indices into PINYIN_TOKENS)\n")
-    out.write("static const uint16_t INITIAL_TOKEN_IDS[]" + prog + " = {\n")
-    for tid in initial_flat:
-        out.write(f"    {tid},\n")
-    out.write("};\n\n")
-    out.write("static const uint32_t INITIAL_TOKEN_RANGE[][2]" + prog + " = {\n")
-    for start,cnt in initial_ranges:
-        out.write(f"    {{ {start}, {cnt} }},\n")
-    out.write("};\n\n")
+    #out.write("static const char PINYIN_INITIALS[]" + prog + " = {\n")
+    #for init in unique_initials:
+    #    out.write(f"    '{init}',\n")
+    #out.write("};\n\n")
+    #out.write("// mapping from initial index -> flat token id list (indices into PINYIN_TOKENS)\n")
+    #out.write("static const uint16_t INITIAL_TOKEN_IDS[]" + prog + " = {\n")
+    #for tid in initial_flat:
+    #    out.write(f"    {tid},\n")
+    #out.write("};\n\n")
+    #out.write("static const uint32_t INITIAL_TOKEN_RANGE[][2]" + prog + " = {\n")
+    #for start,cnt in initial_ranges:
+    #    out.write(f"    {{ {start}, {cnt} }},\n")
+    #out.write("};\n\n")
     # nodes: edges offsets
     out.write("// Node edges: for each node, a range into NODE_EDGES (start,count)\n")
     # flatten edges
@@ -186,8 +196,8 @@ with open(OUTPUT, 'w', encoding='utf-8') as out:
         for tokid, childid in edges:
             flat_edges.append((tokid, childid))
         edge_ranges.append((start, len(edges)))
-    out.write(f"static const uint16_t NODE_EDGE_COUNT = {len(flat_edges)};\n")
-    out.write("struct Edge { uint16_t token_id; uint16_t child_node; };\n")
+    #out.write(f"static const uint16_t NODE_EDGE_COUNT = {len(flat_edges)};\n")
+    out.write("struct Edge { uint32_t token_id; uint32_t child_node; };\n")
     out.write("static const Edge NODE_EDGES[]" + prog + " = {\n")
     for tokid, childid in flat_edges:
         out.write(f"    {{ {tokid}, {childid} }},\n")
@@ -223,7 +233,7 @@ with open(OUTPUT, 'w', encoding='utf-8') as out:
     for wt in node_max_weights:
         out.write(f"    {wt},\n")
     out.write("};\n\n")
-    out.write("static const int32_t WORDS_WEIGHT[]" + prog + " = {\n")
+    out.write("static const uint32_t WORDS_WEIGHT[]" + prog + " = {\n")
     for wt in weights:
         out.write(f"    {wt},\n")
     out.write("};\n\n")
