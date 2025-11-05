@@ -20,7 +20,7 @@ void turnOffLights()
     pixels.setBrightness(0);
     pixels.fill(pixels.Color(0, 0, 0), 0, NEOPIXEL_COUNT);
 #ifdef ARCH_NRF52
-    delayMicroseconds(1);
+    delayMicroseconds(2);
 #endif
     pixels.show();
 }
