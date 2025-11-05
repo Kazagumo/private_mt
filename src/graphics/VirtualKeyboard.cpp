@@ -840,7 +840,7 @@ void VirtualKeyboard::showNextSelection()
 {
     uint8_t listlen = displayList.size();
     uint8_t nextOffset = resultsOffset + listlen;
-    resultsOffset = nextOffset >= resultsfulllen ? 0 : nextOffset;
+    resultsOffset = nextOffset > resultsfulllen ? 0 : nextOffset;
     selectableChars = 0;
 }
 
