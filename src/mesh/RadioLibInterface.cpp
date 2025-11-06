@@ -459,7 +459,9 @@ void RadioLibInterface::handleReceiveInterrupt()
     isReceiving = false;
 
 #ifdef HAS_NEOPIXEL
+#ifndef ARCH_NRF52
     showLoraActivity(0, 255, 0);
+#endif
 #endif
 
     // read the number of actually received bytes
@@ -589,7 +591,9 @@ bool RadioLibInterface::startSend(meshtastic_MeshPacket *txp)
             lastTxStart = millis();
             printPacket("Started Tx", txp);
 #ifdef HAS_NEOPIXEL
+#ifndef ARCH_NRF52
             showLoraActivity(255, 0, 0);
+#endif
 #endif
         }
 
