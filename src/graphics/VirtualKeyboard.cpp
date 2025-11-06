@@ -235,7 +235,7 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
 
     // Chinese selecting area display
 
-    if (IMEStatus == ACTIVE && !inputText.empty()) {
+    if (IMEStatus == ACTIVE) {
         std::string currentPinyin = inputText.substr(processedWords, inputText.length() - processedWords);
         int fulllen = 0;
         // commit query when inputed pinyin changed.
@@ -261,8 +261,8 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
                     display->drawHorizontalLine(lastpos, boxHeight, width);     // display the current selected word.
                     display->drawHorizontalLine(lastpos, boxHeight + 1, width); // double underline cuz i'm short-sighted.
                 }
+                selectableChars++;
             } else {
-                selectableChars = i - 1;
                 break;
             }
         }
@@ -625,8 +625,13 @@ void VirtualKeyboard::handlePress()
 void VirtualKeyboard::handleLongPress()
 {
     resetTimeout(); // Reset timeout on any input activity
-
     const VirtualKey &key = keyboard[cursorRow][cursorCol];
+
+    if (key.character == '1') {
+        insertCharacter('/');
+        return;
+    }
+
     // directly enter what cursor selected instead of enter digits.
     if (IMEStatus == ACTIVE && cursorCol <= 8) {
         selectChineseChar(cursorCol);
@@ -640,11 +645,6 @@ void VirtualKeyboard::handleLongPress()
 
     // Don't handle press if the key is empty (but allow special keys)
     if (key.character == 0 && key.type == VK_CHAR) {
-        return;
-    }
-
-    if (key.character == '1') {
-        insertCharacter('/');
         return;
     }
 
@@ -820,7 +820,7 @@ uint8_t VirtualKeyboard::getChineseChar(uint8_t c)
 
 void VirtualKeyboard::selectChineseChar(uint8_t chridx)
 {
-    if (chridx > selectableChars)
+    if (chridx + 1 > selectableChars)
         return; // make sure it won't overflow.
     int pinyinLength = inputText.length() - processedWords;
     inputText.erase(inputText.length() - pinyinLength, inputText.length());
