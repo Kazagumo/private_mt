@@ -246,8 +246,8 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
 
         // draw chinese select area.
         for (int i = resultsOffset; i <= resultsfulllen; i++) {
+            selectableChars = 0;
             if (results.empty()) {
-                selectableChars = 0;
                 break;
             }
             uint8_t lastpos = fulllen;
