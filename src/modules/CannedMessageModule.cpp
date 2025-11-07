@@ -1108,7 +1108,7 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
 
     this->waitingForAck = true;
 
-<<<<<<< HEAD
+<<<<<<<<< Temporary merge branch 1
     // Send to mesh (PKI-encrypted if conditions above matched)
 =======
     // Log outgoing message
