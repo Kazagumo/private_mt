@@ -1108,9 +1108,6 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
 
     this->waitingForAck = true;
 
-<<<<<<<<< Temporary merge branch 1
-    // Send to mesh (PKI-encrypted if conditions above matched)
-=======
     // Log outgoing message
     LOG_INFO("Send message id=%u, dest=%x, msg=%.*s", p->id, p->to, p->decoded.payload.size, p->decoded.payload.bytes);
 
@@ -1129,7 +1126,6 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
     }
 
     // Send to mesh and phone (even if no phone connected, to track ACKs)
->>>>>>> origin/master
     service->sendToMesh(p, RX_SRC_LOCAL, true);
 
     // Show banner immediately
