@@ -246,13 +246,12 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
 
         // draw chinese select area.
         for (int i = resultsOffset; i <= resultsfulllen; i++) {
-            selectableChars = 0;
             if (results.empty()) {
                 break;
             }
             uint8_t lastpos = fulllen;
             uint8_t width = screen->getCJKwidth(display, results[i].c_str());
-            fulllen += width + 6;
+            fulllen += width + 6; // spacing between displayed words.
             if (fulllen < display->getWidth() - 5) {
                 selectionPos.push_back(fulllen - 6);
                 displayList.push_back(results[i]);
@@ -261,7 +260,6 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
                     display->drawHorizontalLine(lastpos, boxHeight, width);     // display the current selected word.
                     display->drawHorizontalLine(lastpos, boxHeight + 1, width); // double underline cuz i'm short-sighted.
                 }
-                selectableChars++;
             } else {
                 break;
             }
@@ -807,22 +805,12 @@ uint8_t VirtualKeyboard::getUtf8Length(const char *c, uint8_t pos)
     return 0;
 }
 
-/*
-uint8_t VirtualKeyboard::getChineseChar(uint8_t c)
-{
-    int ret = 0;
-    for (int i = 0; i < c; i++) { // consecutively extract bytes
-        ret += selectListLayout[i];
-    }
-    return ret;
-}
-*/
-
 void VirtualKeyboard::selectChineseChar(uint8_t chridx)
 {
-    if (chridx + 1 > selectableChars)
+    if (chridx + 1 > displayList.size())
         return; // make sure it won't overflow.
     int pinyinLength = inputText.length() - processedWords;
+    // replace pinyin with chinese words.
     inputText.erase(inputText.length() - pinyinLength, inputText.length());
     inputTextLayout.erase(inputTextLayout.end() - pinyinLength, inputTextLayout.end());
     std::string word = displayList[chridx];
@@ -841,7 +829,6 @@ void VirtualKeyboard::showNextSelection()
     uint8_t listlen = displayList.size();
     uint8_t nextOffset = resultsOffset + listlen;
     resultsOffset = nextOffset > resultsfulllen ? 0 : nextOffset;
-    selectableChars = 0;
 }
 
 } // namespace graphics

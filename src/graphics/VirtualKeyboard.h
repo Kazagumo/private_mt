@@ -67,7 +67,6 @@ class VirtualKeyboard
 
     enum _IMEStatus { ACTIVE, INACTIVE } IMEStatus = INACTIVE;
     uint8_t processedWords = 0;
-    uint8_t selectableChars = 0;
     int resultsOffset;
     // std::string stagedPinyin = "";
     uint8_t resultsfulllen = 0;
