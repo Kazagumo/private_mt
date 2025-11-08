@@ -497,6 +497,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
 #else
         display->drawString(center_text, getTextPositions(display)[2], messageString)
 #endif
+        graphics::drawCommonFooter(display, x, y);
         return;
     }
 
@@ -770,6 +771,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     }
 
     graphics::drawCommonHeader(display, x, y, titleStr);
+    graphics::drawCommonFooter(display, x, y);
 }
 
 std::vector<std::string> generateLines(OLEDDisplay *display, const char *headerStr, const char *messageBuf, int textWidth)
