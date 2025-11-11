@@ -54,10 +54,10 @@ with open(INPUT, encoding='utf-8') as f:
         if not res:
             continue
         word, pinyin, weight = res
-        if word in words_included:
+        if (word+pinyin) in words_included:
             continue
         else:
-            words_included.append(word)
+            words_included.append((word+pinyin))
         # skip entries with low weight to reduce final binary size / noise
         if len(word) == 1 and weight < weights_exclude:
             continue
