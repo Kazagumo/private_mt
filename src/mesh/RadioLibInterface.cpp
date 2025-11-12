@@ -15,14 +15,18 @@
 #include "AmbientLightLock.h"
 #include <graphics/NeoPixel.h>
 
-void turnOffLights()
+inline void turnOffLights()
 {
     pixels.setBrightness(0);
     pixels.fill(pixels.Color(0, 0, 0), 0, NEOPIXEL_COUNT);
     pixels.show();
+#ifdef ARCH_NRF52
+    pixels.show();
+    pixels.show();
+#endif
 }
 
-void showLoraActivity(uint8_t r, uint8_t g, uint8_t b)
+inline void showLoraActivity(uint8_t r, uint8_t g, uint8_t b)
 {
     if (!isBusy) {
         pixels.setBrightness(230);
