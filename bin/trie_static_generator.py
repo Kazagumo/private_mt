@@ -44,7 +44,7 @@ def parse_line(line):
         return None
     word = parts[0]
     weight = parts[-1]
-    pinyin = " ".join(parts[1:-1])
+    pinyin = " ".join(parts[1:-1]).lower()
     return word, pinyin, int(weight)
 
 count = 0

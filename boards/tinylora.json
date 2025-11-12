@@ -18,9 +18,9 @@
   "frameworks": ["arduino", "espidf"],
   "name": "TinyLora C3 Lora devkit",
   "upload": {
-    "flash_size": "8MB",
+    "flash_size": "16MB",
     "maximum_ram_size": 327680,
-    "maximum_size": 8388608,
+    "maximum_size": 16777216,
     "require_upload_port": true,
     "speed": 460800
   },

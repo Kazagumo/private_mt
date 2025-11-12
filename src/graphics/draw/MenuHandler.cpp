@@ -851,7 +851,6 @@ void menuHandler::homeBaseMenu()
         optionsArray[options] = "Send Node Info";
     }
     optionsEnumArray[options++] = Position;
-<<<<<<< HEAD
 #if defined(M5STACK_UNITC6L)
     optionsArray[options] = "New Preset";
 #else
@@ -866,8 +865,6 @@ void menuHandler::homeBaseMenu()
         optionsArray[options] = "New Freetext Msg";
         optionsEnumArray[options++] = Freetext;
     }
-=======
->>>>>>> origin/multi-message-Storage
 
     BannerOverlayOptions bannerOptions;
 #if defined(M5STACK_UNITC6L)
