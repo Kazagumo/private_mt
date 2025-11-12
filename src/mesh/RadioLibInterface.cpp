@@ -15,17 +15,18 @@
 #include "AmbientLightLock.h"
 #include <graphics/NeoPixel.h>
 
-void turnOffLights()
+inline void turnOffLights()
 {
     pixels.setBrightness(0);
     pixels.fill(pixels.Color(0, 0, 0), 0, NEOPIXEL_COUNT);
 #ifdef ARCH_NRF52
-    delayMicroseconds(2);
+    pixels.show();
+    pixels.show();
 #endif
     pixels.show();
 }
 
-void showLoraActivity(uint8_t r, uint8_t g, uint8_t b)
+inline void showLoraActivity(uint8_t r, uint8_t g, uint8_t b)
 {
     if (!isBusy) {
         pixels.setBrightness(230);
@@ -459,9 +460,7 @@ void RadioLibInterface::handleReceiveInterrupt()
     isReceiving = false;
 
 #ifdef HAS_NEOPIXEL
-#ifndef ARCH_NRF52
     showLoraActivity(0, 255, 0);
-#endif
 #endif
 
     // read the number of actually received bytes
@@ -591,9 +590,7 @@ bool RadioLibInterface::startSend(meshtastic_MeshPacket *txp)
             lastTxStart = millis();
             printPacket("Started Tx", txp);
 #ifdef HAS_NEOPIXEL
-#ifndef ARCH_NRF52
             showLoraActivity(255, 0, 0);
-#endif
 #endif
         }
 
