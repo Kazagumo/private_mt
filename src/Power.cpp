@@ -340,7 +340,7 @@ class AnalogBatteryLevel : public HasBatteryLevel
 #ifdef ARCH_ESP32 // ADC block for espressif platforms
             raw = espAdcRead();
 #ifndef ESP32C6
-            scaled = esp_adc_cal_raw_to_voltage(raw, adc_characs);
+            voltage = esp_adc_cal_raw_to_voltage(raw, adc_characs);
 #else
             ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, raw, &voltage));
 #endif
