@@ -5,11 +5,9 @@
 // https://github.com/Mymetu/TinyLora-C3
 
 // Ext Notif
-#ifdef TL_GPS
 #define PIN_BUZZER 11
 #define LED_PIN 13     // LED
 #define LED_STATE_ON 1 // State when LED is lit
-#endif
 
 // I2C
 #define WIRE_INTERFACES_COUNT 1
@@ -17,12 +15,10 @@
 #define I2C_SCL 1
 
 // ADC
-#ifdef TL_GPS
-#define HAS_BATTERY
+#define BATTERY_IMMUTABLE
 #define BATTERY_PIN 2 // A battery voltage measurement pin, voltage divider connected here to measure battery voltage
 #define ADC_CHANNEL ADC1_CHANNEL_2
 #define ADC_MULTIPLIER 2.0
-#endif
 
 // Trackball
 #define HAS_TRACKBALL_I2C 1
