@@ -6,8 +6,10 @@
 
 // Ext Notif
 #define PIN_BUZZER 11
-#define LED_PIN 13     // LED
-#define LED_STATE_ON 1 // State when LED is lit
+#define HAS_NEOPIXEL                         // Enable the use of neopixels
+#define NEOPIXEL_COUNT 1                     // How many neopixels are connected
+#define NEOPIXEL_DATA 13                     // gpio pin used to send data to the neopixels
+#define NEOPIXEL_TYPE (NEO_GRB + NEO_KHZ800) // type of neopixels in use
 
 // I2C
 #define WIRE_INTERFACES_COUNT 1
