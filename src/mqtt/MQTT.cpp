@@ -695,6 +695,9 @@ void MQTT::publishQueuedMessages()
     if (mqttQueue.isEmpty() || !isConnected)
         return;
 
+    if (!moduleConfig.mqtt.proxy_to_client_enabled && !isConnected)
+        return;
+
     LOG_DEBUG("Publish enqueued MQTT message");
     const std::unique_ptr<QueueEntry> entry(mqttQueue.dequeuePtr(0));
     LOG_INFO("publish %s, %u bytes from queue", entry->topic.c_str(), entry->envBytes.size());
