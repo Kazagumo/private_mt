@@ -278,10 +278,8 @@ void drawDigitalClockFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int1
     }
     display->drawString(startingHourMinuteTextX + timeStringWidth - xOffset, (display->getHeight() - hourMinuteTextY) - 1,
                         secondString);
-#endif
-}
-
     graphics::drawCommonFooter(display, x, y);
+#endif
 }
 
 // Draw an analog clock
