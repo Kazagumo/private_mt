@@ -11,6 +11,7 @@
 #include "gps/RTC.h"
 #include "graphics/ScreenFonts.h"
 #include "graphics/SharedUIDisplay.h"
+#include "graphics/TimeFormatters.h"
 #include "graphics/images.h"
 #include "main.h"
 #include "mesh/Channels.h"

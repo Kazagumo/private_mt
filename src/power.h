@@ -146,4 +146,6 @@ class Power : private concurrency::OSThread
 #endif
 };
 
+void battery_adcEnable();
+
 extern Power *power;
