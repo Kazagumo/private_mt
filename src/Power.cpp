@@ -209,7 +209,7 @@ static HasBatteryLevel *batteryLevel; // Default to NULL for no battery level se
 
 #ifdef BATTERY_PIN
 
-static void adcEnable()
+void battery_adcEnable()
 {
 #ifdef ADC_CTRL // enable adc voltage divider when we need to read
 #ifdef ADC_USE_PULLUP
@@ -229,7 +229,7 @@ static void adcEnable()
 #endif
 }
 
-static void adcDisable()
+static void battery_adcDisable()
 {
 #ifdef ADC_CTRL // disable adc voltage divider when we need to read
 #ifdef ADC_USE_PULLUP
@@ -336,7 +336,7 @@ class AnalogBatteryLevel : public HasBatteryLevel
             int voltage = 0;
             float scaled = 0;
 
-            adcEnable();
+            battery_adcEnable();
 #ifdef ARCH_ESP32 // ADC block for espressif platforms
             raw = espAdcRead();
 #ifndef ESP32C6
@@ -352,7 +352,7 @@ class AnalogBatteryLevel : public HasBatteryLevel
             raw = raw / BATTERY_SENSE_SAMPLES;
             scaled = operativeAdcMultiplier * ((1000 * AREF_VOLTAGE) / pow(2, BATTERY_SENSE_RESOLUTION_BITS)) * raw;
 #endif
-            adcDisable();
+            battery_adcDisable();
 
             if (!initial_read_done) {
                 // Flush the smoothing filter with an ADC reading, if the reading is plausibly correct
