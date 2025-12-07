@@ -30,8 +30,8 @@ NRF52 PRO MICRO PIN ASSIGNMENT
 | Gnd   |             |     | reset    |              |       |
 | Gnd   |             |     | ext_vcc  | *see 0.13    |       |
 | P0.17 | RXEN        |     | P0.31    | BATTERY_PIN  |       |
-| P0.20 | GPS_RX      |     | P0.29    | BUSY         | DIO0  |
-| P0.22 | GPS_TX      |     | P0.02    | MISO         | MISO  |
+| P0.20 | GPS_TX      |     | P0.29    | BUSY         | DIO0  |
+| P0.22 | GPS_RX      |     | P0.02    | MISO         | MISO  |
 | P0.24 | GPS_EN      |     | P1.15    | MOSI         | MOSI  |
 | P1.00 | BUTTON_PIN  |     | P1.13    | CS           | CS    |
 | P0.11 | SCL         |     | P1.11    | SCK          | SCK   |

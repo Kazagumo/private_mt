@@ -36,7 +36,7 @@ namespace MessageRenderer
 
 static std::vector<std::string> cachedLines;
 static std::vector<int> cachedHeights;
-input_broker_event event;
+static bool manualScrolling = false;
 
 // UTF-8 skip helper
 static inline size_t utf8CharLen(uint8_t c)
@@ -74,6 +74,41 @@ std::string normalizeEmoji(const std::string &s)
         i += len;
     }
     return out;
+}
+
+// Scroll state (file scope so we can reset on new message)
+float scrollY = 0.0f;
+uint32_t lastTime = 0;
+uint32_t scrollStartDelay = 0;
+uint32_t pauseStart = 0;
+bool waitingToReset = false;
+bool scrollStarted = false;
+static bool didReset = false;
+
+void scrollUp()
+{
+    manualScrolling = true;
+    scrollY -= 12;
+    if (scrollY < 0)
+        scrollY = 0;
+}
+
+void scrollDown()
+{
+    manualScrolling = true;
+
+    int totalHeight = 0;
+    for (int h : cachedHeights)
+        totalHeight += h;
+
+    int visibleHeight = screen->getHeight() - (FONT_HEIGHT_SMALL * 2);
+    int maxScroll = totalHeight - visibleHeight;
+    if (maxScroll < 0)
+        maxScroll = 0;
+
+    scrollY += 12;
+    if (scrollY > maxScroll)
+        scrollY = maxScroll;
 }
 
 void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string &line, const Emote *emotes, int emoteCount)
@@ -120,7 +155,6 @@ void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string 
     int lineHeight = std::max(fontHeight, maxIconHeight);
     int baselineOffset = (lineHeight - fontHeight) / 2;
     int fontY = y + baselineOffset;
-    int fontMidline = fontY + fontHeight / 2;
 
     // Step 3: Render line in segments
     size_t i = 0;
@@ -229,16 +263,6 @@ void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string 
     }
 }
 
-// Scroll state (file scope so we can reset on new message)
-float scrollY = 0.0f;
-uint32_t lastTime = 0;
-uint32_t scrollStartDelay = 0;
-uint32_t pauseStart = 0;
-bool waitingToReset = false;
-bool scrollStarted = false;
-static bool didReset = false;
-uint16_t scrolledline = 0; // <-- add here
-
 // Reset scroll state when new messages arrive
 void resetScrollState()
 {
@@ -248,7 +272,7 @@ void resetScrollState()
     waitingToReset = false;
     scrollStartDelay = millis();
     lastTime = millis();
-
+    manualScrolling = false;
     didReset = false;
 }
 
@@ -402,6 +426,22 @@ static inline int getRenderedLineWidth(OLEDDisplay *display, const std::string &
         }
     }
     return totalWidth;
+}
+
+static void drawMessageScrollbar(OLEDDisplay *display, int visibleHeight, int totalHeight, int scrollOffset, int startY)
+{
+    if (totalHeight <= visibleHeight)
+        return; // no scrollbar needed
+
+    int scrollbarX = display->getWidth() - 2;
+    int scrollbarHeight = visibleHeight;
+    int thumbHeight = std::max(6, (scrollbarHeight * visibleHeight) / totalHeight);
+    int maxScroll = std::max(1, totalHeight - visibleHeight);
+    int thumbY = startY + (scrollbarHeight - thumbHeight) * scrollOffset / maxScroll;
+
+    for (int i = 0; i < thumbHeight; i++) {
+        display->setPixel(scrollbarX, thumbY + i);
+    }
 }
 
 void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
@@ -644,72 +684,46 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     int usableScrollHeight = usableHeight;
     int scrollStop = std::max(0, totalHeight - usableScrollHeight + cachedHeights.back());
 
-    switch (event) {
-    case INPUT_BROKER_UP:
-        isManualScroll = true;
-        if (scrolledline - 1 >= 0) {
-            scrolledline--;
-            scrollY -= cachedHeights[scrolledline];
-        }
-        break;
-    case INPUT_BROKER_DOWN:
-        isManualScroll = true;
-        if (scrolledline + 1 <= cachedHeights.size() - 2) {
-            scrollY += cachedHeights[scrolledline];
-            scrolledline++;
-        }
-        break;
-    default:
-        break;
-    }
-    event = INPUT_BROKER_NONE;
 #ifndef USE_EINK
     uint32_t now = millis();
     float delta = (now - lastTime) / 400.0f;
     lastTime = now;
     const float scrollSpeed = 2.0f;
 
-    if (!isManualScroll) {
+    if (scrollStartDelay == 0)
+        scrollStartDelay = now;
+    if (!scrollStarted && now - scrollStartDelay > 2000)
+        scrollStarted = true;
 
-        float delta = (now - lastTime) / 400.0f;
-        lastTime = now;
-        const float scrollSpeed = 2.0f;
-
-        if (scrollStartDelay == 0)
-            scrollStartDelay = now;
-        if (!scrollStarted && now - scrollStartDelay > 2000)
-            scrollStarted = true;
-
-        if (totalHeight > usableScrollHeight) {
-            if (scrollStarted) {
-                if (!waitingToReset) {
-                    scrollY += delta * scrollSpeed;
-                    if (scrollY >= scrollStop) {
-                        scrollY = scrollStop;
-                        waitingToReset = true;
-                        pauseStart = lastTime;
-                    }
-                } else if (lastTime - pauseStart > 3000) {
-                    scrollY = 0;
-                    waitingToReset = false;
-                    scrollStarted = false;
-                    scrollStartDelay = lastTime;
+if (!manualScrolling && totalHeight > usableScrollHeight) {
+        if (scrollStarted) {
+            if (!waitingToReset) {
+                scrollY += delta * scrollSpeed;
+                if (scrollY >= scrollStop) {
+                    scrollY = scrollStop;
+                    waitingToReset = true;
+                    pauseStart = lastTime;
                 }
+            } else if (lastTime - pauseStart > 3000) {
+                scrollY = 0;
+                waitingToReset = false;
+                scrollStarted = false;
+                scrollStartDelay = lastTime;
             }
-        } else {
-            scrollY = 0;
         }
+    } else if (!manualScrolling) {
+        scrollY = 0;
     }
 #else
     // E-Ink: disable autoscroll
     scrollY = 0.0f;
     waitingToReset = false;
     scrollStarted = false;
-    lastTime = millis(); // keep timebase sane
+    lastTime = millis();
 #endif
 
-    int scrollOffset = static_cast<int>(scrollY);
-    int yOffset = -scrollOffset + getTextPositions(display)[1];
+    int finalScroll = (int)scrollY;
+    int yOffset = -finalScroll + getTextPositions(display)[1];
 
     // Render visible lines
     for (size_t i = 0; i < cachedLines.size(); ++i) {
@@ -721,7 +735,16 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
             if (isHeader[i]) {
                 // Render header
                 int w = screen->getCJKwidth(display, cachedLines[i].c_str());
-                int headerX = isMine[i] ? (SCREEN_WIDTH - w - 2) : x;
+                constexpr int SCROLLBAR_WIDTH = 3;
+
+                int headerX;
+                if (isMine[i]) {
+                    // push header left to avoid overlap with scrollbar
+                    headerX = (SCREEN_WIDTH - SCROLLBAR_WIDTH) - w - 2;
+                } else {
+                    headerX = x;
+                }
+                
                 if (screen->containsCJKCharacters(cachedLines[i].c_str())) {
                     screen->drawCJKString(display, headerX, lineY, cachedLines[i].c_str());
                 } else {
@@ -765,15 +788,20 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
                     // int rightX = SCREEN_WIDTH - w - 2;
                     //  Calculate actual rendered width including emotes
                     int renderedWidth = getRenderedLineWidth(display, cachedLines[i], emotes, numEmotes);
-                    int rightX = SCREEN_WIDTH - renderedWidth - 2; // -2 for slight padding from the edge
-                    drawStringWithEmotes(display, rightX, finalY, cachedLines[i], emotes, numEmotes);
+                    constexpr int SCROLLBAR_WIDTH = 3;
+                    int rightX = SCREEN_WIDTH - renderedWidth - SCROLLBAR_WIDTH - 2;
+                    drawStringWithEmotes(display, rightX, lineY, cachedLines[i], emotes, numEmotes);
                 } else {
                     drawStringWithEmotes(display, x, finalY, cachedLines[i], emotes, numEmotes);
                 }
             }
         }
     }
+    int totalContentHeight = totalHeight;
+    int visibleHeight = usableHeight;
 
+    // Draw scrollbar
+    drawMessageScrollbar(display, visibleHeight, totalContentHeight, finalScroll, getTextPositions(display)[1]);
     graphics::drawCommonHeader(display, x, y, titleStr);
     graphics::drawCommonFooter(display, x, y);
 }
