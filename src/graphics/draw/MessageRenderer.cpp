@@ -81,6 +81,7 @@ float scrollY = 0.0f;
 uint32_t lastTime = 0;
 uint32_t scrollStartDelay = 0;
 uint32_t pauseStart = 0;
+uint16_t scrolledLines = 0;
 bool waitingToReset = false;
 bool scrollStarted = false;
 static bool didReset = false;
@@ -88,9 +89,15 @@ static bool didReset = false;
 void scrollUp()
 {
     manualScrolling = true;
-    scrollY -= 12;
-    if (scrollY < 0)
+
+    if (scrollY < 0) {
         scrollY = 0;
+    }
+
+    if (scrolledLines - 1 >= 0) {
+        scrolledLines--;
+        scrollY -= cachedHeights[scrolledLines];
+    }
 }
 
 void scrollDown()
@@ -106,7 +113,11 @@ void scrollDown()
     if (maxScroll < 0)
         maxScroll = 0;
 
-    scrollY += 12;
+    if (scrolledLines + 1 <= cachedHeights.size() - 2) {
+        scrollY += cachedHeights[scrolledLines];
+        scrolledLines++;
+    }
+
     if (scrollY > maxScroll)
         scrollY = maxScroll;
 }
@@ -267,7 +278,7 @@ void drawStringWithEmotes(OLEDDisplay *display, int x, int y, const std::string 
 void resetScrollState()
 {
     scrollY = 0.0f;
-    scrolledline = 0;
+    scrolledLines = 0;
     scrollStarted = false;
     waitingToReset = false;
     scrollStartDelay = millis();
@@ -387,11 +398,6 @@ static void drawRelayMark(OLEDDisplay *display, int x, int y, int size = 8)
     display->drawLine(centerX, centerY - 2, centerX, centerY);
     display->setPixel(centerX, centerY + 2);
     display->drawLine(centerX - 1, centerY - 4, centerX + 1, centerY - 4);
-}
-
-void handleManualScroll(input_broker_event inevent)
-{
-    event = inevent;
 }
 
 static inline int getRenderedLineWidth(OLEDDisplay *display, const std::string &line, const Emote *emotes, int emoteCount)
@@ -695,7 +701,7 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     if (!scrollStarted && now - scrollStartDelay > 2000)
         scrollStarted = true;
 
-if (!manualScrolling && totalHeight > usableScrollHeight) {
+    if (!manualScrolling && totalHeight > usableScrollHeight) {
         if (scrollStarted) {
             if (!waitingToReset) {
                 scrollY += delta * scrollSpeed;
@@ -744,7 +750,7 @@ if (!manualScrolling && totalHeight > usableScrollHeight) {
                 } else {
                     headerX = x;
                 }
-                
+
                 if (screen->containsCJKCharacters(cachedLines[i].c_str())) {
                     screen->drawCJKString(display, headerX, lineY, cachedLines[i].c_str());
                 } else {

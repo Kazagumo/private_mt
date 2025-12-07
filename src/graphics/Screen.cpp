@@ -1568,10 +1568,6 @@ int Screen::handleInputEvent(const InputEvent *event)
 
         // If no modules are using the input, move between frames
         if (!inputIntercepted) {
-            if (this->ui->getUiState()->currentFrame == framesetInfo.positions.textMessage) {
-                MessageRenderer::handleManualScroll(event->inputEvent);
-                setFastFramerate();
-            }
 #ifdef GAT562_MESH_TRACKER_PRO
             if (event->inputEvent == INPUT_BROKER_USER_PRESS) {
                 if (screen->screenStatus()) {
