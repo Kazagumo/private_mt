@@ -46,6 +46,7 @@ class VirtualKeyboard
 
     // Chinese IME
     void toggleIME();
+    void showNextSelection();
 
     void deleteCharacter();
 
@@ -92,7 +93,6 @@ class VirtualKeyboard
     uint8_t getUtf8Length(const char *c, uint8_t pos);
     uint8_t getChineseChar(uint8_t c);
     void selectChineseChar(uint8_t chridx);
-    void showNextSelection();
 };
 
 } // namespace graphics

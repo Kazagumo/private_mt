@@ -748,8 +748,7 @@ void NotificationRenderer::drawTextInput(OLEDDisplay *display, OLEDDisplayUiStat
             } else if (inEvent.inputEvent == INPUT_BROKER_DOWN_LONG) {
                 virtualKeyboard->moveCursorDown();
             } else if (inEvent.inputEvent == INPUT_BROKER_ALT_PRESS) {
-                // virtualKeyboard->moveCursorUp();
-                virtualKeyboard->toggleIME();
+                virtualKeyboard->showNextSelection();
 #ifndef GAT562_MESH_WATCH
             } else if (inEvent.inputEvent == INPUT_BROKER_USER_PRESS) {
                 // virtualKeyboard->moveCursorDown();
