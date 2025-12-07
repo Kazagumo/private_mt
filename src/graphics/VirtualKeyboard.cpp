@@ -525,6 +525,9 @@ void VirtualKeyboard::drawKey(OLEDDisplay *display, const VirtualKey &key, bool 
             }
         }
     }
+#ifdef MUZI_BASE // Correct issue with character vertical position on MUZI_BASE
+    centeredTextY -= 2;
+#endif
     display->drawString(textX, centeredTextY, keyText.c_str());
 }
 
