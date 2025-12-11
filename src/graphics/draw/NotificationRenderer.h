@@ -4,6 +4,7 @@
 #include "OLEDDisplayUi.h"
 #include "graphics/Screen.h"
 #include "graphics/VirtualKeyboard.h"
+#include "modules/OnScreenKeyboardModule.h"
 #include <functional>
 #include <string>
 #define MAX_LINES 5

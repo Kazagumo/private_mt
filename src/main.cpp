@@ -447,6 +447,11 @@ void setup()
 
     LOG_INFO("\n\n Testing Purpose only,do not redistribute. \n");
 
+#if defined(ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
+    // use PSRAM for malloc calls > 256 bytes
+    heap_caps_malloc_extmem_enable(256);
+#endif
+
 #if defined(DEBUG_MUTE) && defined(DEBUG_PORT)
     DEBUG_PORT.printf("\n\n Testing Purpose only,do not redistribute. \n");
     DEBUG_PORT.printf("Version %s for %s\r\n", optstr(APP_VERSION), optstr(APP_ENV));

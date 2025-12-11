@@ -96,11 +96,7 @@ void NotificationRenderer::resetBanner()
     alertBannerMessage[0] = '\0';
     current_notification_type = notificationTypeEnum::none;
 
-    // Reset keyboard popup message variables
-    keyboardPopupMessage[0] = '\0';
-    keyboardPopupTitle[0] = '\0';
-    keyboardPopupUntil = 0;
-    showKeyboardPopup = false;
+    OnScreenKeyboardModule::instance().clearPopup();
 
     inEvent.inputEvent = INPUT_BROKER_NONE;
     inEvent.kbchar = 0;
@@ -115,9 +111,10 @@ void NotificationRenderer::resetBanner()
 
     nodeDB->pause_sort(false);
 
-    // If we're exiting from text_input (virtual keyboard), trigger frame update
+    // If we're exiting from text_input (virtual keyboard), stop module and trigger frame update
     // to ensure any messages received during keyboard use are now displayed
     if (previousType == notificationTypeEnum::text_input && screen) {
+        OnScreenKeyboardModule::instance().stop(false);
         screen->setFrames(graphics::Screen::FOCUS_PRESERVE);
     }
 }
@@ -183,13 +180,15 @@ void NotificationRenderer::drawNumberPicker(OLEDDisplay *display, OLEDDisplayUiS
     // modulo to extract
     uint8_t this_digit = (currentNumber % (pow_of_10(numDigits - curSelected))) / (pow_of_10(numDigits - curSelected - 1));
     // Handle input
-    if (inEvent.inputEvent == INPUT_BROKER_UP || inEvent.inputEvent == INPUT_BROKER_ALT_PRESS) {
+    if (inEvent.inputEvent == INPUT_BROKER_UP || inEvent.inputEvent == INPUT_BROKER_ALT_PRESS ||
+        inEvent.inputEvent == INPUT_BROKER_UP_LONG) {
         if (this_digit == 9) {
             currentNumber -= 9 * (pow_of_10(numDigits - curSelected - 1));
         } else {
             currentNumber += (pow_of_10(numDigits - curSelected - 1));
         }
-    } else if (inEvent.inputEvent == INPUT_BROKER_DOWN || inEvent.inputEvent == INPUT_BROKER_USER_PRESS) {
+    } else if (inEvent.inputEvent == INPUT_BROKER_DOWN || inEvent.inputEvent == INPUT_BROKER_USER_PRESS ||
+               inEvent.inputEvent == INPUT_BROKER_DOWN_LONG) {
         if (this_digit == 0) {
             currentNumber += 9 * (pow_of_10(numDigits - curSelected - 1));
         } else {
@@ -271,10 +270,10 @@ void NotificationRenderer::drawNodePicker(OLEDDisplay *display, OLEDDisplayUiSta
 
     // Handle input
     if (inEvent.inputEvent == INPUT_BROKER_UP || inEvent.inputEvent == INPUT_BROKER_LEFT ||
-        inEvent.inputEvent == INPUT_BROKER_ALT_PRESS) {
+        inEvent.inputEvent == INPUT_BROKER_ALT_PRESS || inEvent.inputEvent == INPUT_BROKER_UP_LONG) {
         curSelected--;
     } else if (inEvent.inputEvent == INPUT_BROKER_DOWN || inEvent.inputEvent == INPUT_BROKER_RIGHT ||
-               inEvent.inputEvent == INPUT_BROKER_USER_PRESS) {
+               inEvent.inputEvent == INPUT_BROKER_USER_PRESS || inEvent.inputEvent == INPUT_BROKER_DOWN_LONG) {
         curSelected++;
     } else if (inEvent.inputEvent == INPUT_BROKER_SELECT) {
         alertBannerCallback(selectedNodenum);
@@ -388,10 +387,10 @@ void NotificationRenderer::drawAlertBannerOverlay(OLEDDisplay *display, OLEDDisp
     // Handle input
     if (alertBannerOptions > 0) {
         if (inEvent.inputEvent == INPUT_BROKER_UP || inEvent.inputEvent == INPUT_BROKER_LEFT ||
-            inEvent.inputEvent == INPUT_BROKER_ALT_PRESS) {
+            inEvent.inputEvent == INPUT_BROKER_ALT_PRESS || inEvent.inputEvent == INPUT_BROKER_UP_LONG) {
             curSelected--;
         } else if (inEvent.inputEvent == INPUT_BROKER_DOWN || inEvent.inputEvent == INPUT_BROKER_RIGHT ||
-                   inEvent.inputEvent == INPUT_BROKER_USER_PRESS) {
+                   inEvent.inputEvent == INPUT_BROKER_USER_PRESS || inEvent.inputEvent == INPUT_BROKER_DOWN_LONG) {
             curSelected++;
         } else if (inEvent.inputEvent == INPUT_BROKER_SELECT) {
             if (optionsEnumPtr != nullptr) {
@@ -776,6 +775,19 @@ void NotificationRenderer::drawTextInput(OLEDDisplay *display, OLEDDisplayUiStat
             inEvent.inputEvent = INPUT_BROKER_NONE;
         }
 
+        // Re-check pointer before drawing to avoid use-after-free and crashes
+        if (!virtualKeyboard) {
+            // Ensure we exit text_input state and restore frames
+            if (current_notification_type == notificationTypeEnum::text_input) {
+                resetBanner();
+            }
+            if (screen) {
+                screen->setFrames(graphics::Screen::FOCUS_PRESERVE);
+            }
+            // If screen is null, do nothing (safe fallback)
+            return;
+        }
+
         // Clear the screen to avoid overlapping with underlying frames or overlays
         display->setColor(BLACK);
         display->fillRect(0, 0, display->getWidth(), display->getHeight());
@@ -783,8 +795,8 @@ void NotificationRenderer::drawTextInput(OLEDDisplay *display, OLEDDisplayUiStat
         // Draw the virtual keyboard - clear only when needed
         virtualKeyboard->draw(display, 0, 0);
 
-        // Draw message popup overlay if active
-        drawKeyboardMessagePopup(display);
+        // Draw transient popup overlay (if any) managed by OnScreenKeyboardModule
+        OnScreenKeyboardModule::instance().drawPopupOverlay(display);
     } else {
         // If virtualKeyboard is null, reset the banner to avoid getting stuck
         LOG_INFO("Virtual keyboard is null - resetting banner");
@@ -799,279 +811,9 @@ bool NotificationRenderer::isOverlayBannerShowing()
 
 void NotificationRenderer::showKeyboardMessagePopupWithTitle(const char *title, const char *content, uint32_t durationMs)
 {
-    if (!title || !content || current_notification_type != notificationTypeEnum::text_input) {
+    if (!title || !content || current_notification_type != notificationTypeEnum::text_input)
         return;
-    }
-
-    strncpy(keyboardPopupTitle, title, 63);
-    keyboardPopupTitle[63] = '\0';
-    strncpy(keyboardPopupMessage, content, 255);
-    keyboardPopupMessage[255] = '\0';
-    keyboardPopupUntil = millis() + durationMs;
-    showKeyboardPopup = true;
-}
-
-void NotificationRenderer::drawKeyboardMessagePopup(OLEDDisplay *display)
-{
-    // Check if popup should be dismissed
-    if (!showKeyboardPopup || millis() > keyboardPopupUntil || keyboardPopupMessage[0] == '\0') {
-        showKeyboardPopup = false;
-        return;
-    }
-
-    // === Use drawNotificationBox for true BannerOverlayOptions style ===
-    constexpr uint16_t maxContentLines = 3; // Maximum content lines
-    bool hasTitle = keyboardPopupTitle[0] != '\0';
-
-    display->setFont(FONT_SMALL);
-    display->setTextAlignment(TEXT_ALIGN_LEFT);
-
-    // Conservative wrap width to ensure we never exceed screen after padding
-    const uint16_t maxWrapWidth = display->width() - 40; // Leave room for padding and bell icons
-
-    // Prepare content for display - build lines array for drawNotificationBox
-    std::vector<std::string> allLines;
-
-    // Parse message content into lines with word wrapping
-    char contentBuffer[256];
-    strncpy(contentBuffer, keyboardPopupMessage, 255);
-    contentBuffer[255] = '\0';
-
-    // Helper function to wrap text to fit within available width
-    auto wrapText = [&](const char *text, uint16_t availableWidth) -> std::vector<std::string> {
-        std::vector<std::string> wrappedLines;
-        std::string currentLine;
-        std::string word;
-        const char *ptr = text;
-
-        while (*ptr && wrappedLines.size() < maxContentLines) {
-            // Skip whitespace and handle explicit newlines
-            while (*ptr && (*ptr == ' ' || *ptr == '\t' || *ptr == '\n' || *ptr == '\r')) {
-                if (*ptr == '\n') {
-                    if (!currentLine.empty()) {
-                        wrappedLines.push_back(currentLine);
-                        currentLine.clear();
-                        if (wrappedLines.size() >= maxContentLines)
-                            break;
-                    }
-                }
-                ++ptr;
-            }
-            if (!*ptr || wrappedLines.size() >= maxContentLines)
-                break;
-
-            // Collect next word
-            word.clear();
-            while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n' && *ptr != '\r') {
-                word += *ptr++;
-            }
-            if (word.empty())
-                continue;
-
-            // Try to append word
-            std::string testLine = currentLine.empty() ? word : (currentLine + " " + word);
-            uint16_t testWidth = screen->getCJKwidth(display, testLine.c_str());
-            if (testWidth <= availableWidth) {
-                currentLine = testLine;
-            } else {
-                if (!currentLine.empty()) {
-                    wrappedLines.push_back(currentLine);
-                    currentLine = word;
-                    if (wrappedLines.size() >= maxContentLines)
-                        break;
-                } else {
-                    // Single word longer than available width: hard cut down to fit
-                    currentLine = word;
-                    while (currentLine.size() > 1 && screen->getCJKwidth(display, currentLine.c_str()) > availableWidth) {
-                        currentLine.pop_back();
-                    }
-                }
-            }
-        }
-        if (!currentLine.empty() && wrappedLines.size() < maxContentLines) {
-            wrappedLines.push_back(currentLine);
-        }
-        return wrappedLines;
-    };
-
-    // Add title if present
-    if (hasTitle) {
-        allLines.emplace_back(keyboardPopupTitle);
-    }
-
-    // Split content by newlines first, then wrap each paragraph
-    std::vector<std::string> contentLines;
-    char *paragraph = strtok(contentBuffer, "\n");
-    while (paragraph != nullptr && contentLines.size() < maxContentLines) {
-        auto wrapped = wrapText(paragraph, maxWrapWidth);
-        for (const auto &ln : wrapped) {
-            if (contentLines.size() >= maxContentLines)
-                break;
-            contentLines.push_back(ln);
-        }
-        paragraph = strtok(nullptr, "\n");
-    }
-
-    // Add content lines to allLines
-    for (const auto &ln : contentLines) {
-        allLines.push_back(ln);
-    }
-
-    // Convert to const char* array for drawNotificationBox
-    std::vector<const char *> linePointers;
-    for (const auto &line : allLines) {
-        linePointers.push_back(line.c_str());
-    }
-    linePointers.push_back(nullptr); // null terminate
-
-    // Use a custom inverted color version for keyboard popup
-    drawInvertedNotificationBox(display, nullptr, linePointers.data(), allLines.size(), 0, 0);
-}
-
-// Custom inverted color version for keyboard popup - black background with white text
-void NotificationRenderer::drawInvertedNotificationBox(OLEDDisplay *display, OLEDDisplayUiState *state, const char *lines[],
-                                                       uint16_t totalLines, uint8_t firstOptionToShow, uint16_t maxWidth)
-{
-    bool is_picker = false;
-    uint16_t lineCount = 0;
-    // === Layout Configuration ===
-    constexpr uint16_t hPadding = 5;
-    constexpr uint16_t vPadding = 2;
-    bool needs_bell = false;
-    uint16_t lineWidths[totalLines] = {0};
-    uint16_t lineLengths[totalLines] = {0};
-
-    if (maxWidth != 0)
-        is_picker = true;
-
-    // Setup font and alignment
-    display->setFont(FONT_SMALL);
-    display->setTextAlignment(TEXT_ALIGN_LEFT);
-
-    while (lines[lineCount] != nullptr) {
-        auto newlinePointer = strchr(lines[lineCount], '\n');
-        if (newlinePointer)
-            lineLengths[lineCount] = (newlinePointer - lines[lineCount]);
-        else
-            lineLengths[lineCount] = strlen(lines[lineCount]);
-        lineWidths[lineCount] = screen->getCJKwidth(display, lines[lineCount]);
-        if (!is_picker) {
-            if (lineWidths[lineCount] > maxWidth)
-                maxWidth = lineWidths[lineCount];
-        }
-        lineCount++;
-    }
-
-    uint16_t boxWidth = hPadding * 2 + maxWidth;
-    if (needs_bell) {
-        if (isHighResolution && boxWidth <= 150)
-            boxWidth += 26;
-        if (!isHighResolution && boxWidth <= 100)
-            boxWidth += 20;
-    }
-
-    uint16_t screenHeight = display->height();
-    uint8_t effectiveLineHeight = FONT_HEIGHT_SMALL - 3;
-    uint8_t visibleTotalLines = std::min<uint8_t>(lineCount, (screenHeight - vPadding * 2) / effectiveLineHeight);
-    uint16_t contentHeight = visibleTotalLines * effectiveLineHeight;
-    uint16_t boxHeight = contentHeight + vPadding * 2;
-    if (visibleTotalLines == 1) {
-        boxHeight += (isHighResolution) ? 4 : 3;
-    }
-
-    int16_t boxLeft = (display->width() / 2) - (boxWidth / 2);
-    if (totalLines > visibleTotalLines) {
-        boxWidth += (isHighResolution) ? 4 : 2;
-    }
-    int16_t boxTop = (display->height() / 2) - (boxHeight / 2);
-
-    // === Draw Box with INVERTED COLORS ===
-    // Add outer separation pixels (1-pixel white background around the box)
-    display->setColor(WHITE);
-    display->fillRect(boxLeft - 1, boxTop - 1, boxWidth + 2, boxHeight + 2);
-
-    // Make outer corners round by filling back with背景色 (BLACK for separation)
-    display->setColor(BLACK);
-    // Top-left outer corner
-    display->fillRect(boxLeft - 1, boxTop - 1, 1, 1);
-    // Top-right outer corner
-    display->fillRect(boxLeft + boxWidth, boxTop - 1, 1, 1);
-    // Bottom-left outer corner
-    display->fillRect(boxLeft - 1, boxTop + boxHeight, 1, 1);
-    // Bottom-right outer corner
-    display->fillRect(boxLeft + boxWidth, boxTop + boxHeight, 1, 1);
-
-    // Draw single pixel black border
-    display->setColor(BLACK);
-    display->drawRect(boxLeft, boxTop, boxWidth, boxHeight);
-
-    // Make inner corners round by filling white pixels at corners
-    display->setColor(WHITE);
-    display->fillRect(boxLeft, boxTop, 1, 1);
-    display->fillRect(boxLeft + boxWidth - 1, boxTop, 1, 1);
-    display->fillRect(boxLeft, boxTop + boxHeight - 1, 1, 1);
-    display->fillRect(boxLeft + boxWidth - 1, boxTop + boxHeight - 1, 1, 1);
-
-    // Fill interior with BLACK (inverted)
-    display->setColor(BLACK);
-    display->fillRect(boxLeft + 1, boxTop + 1, boxWidth - 2, boxHeight - 2);
-
-    // === Draw Content with WHITE text on BLACK background ===
-    display->setColor(WHITE);
-    int16_t lineY = boxTop + vPadding;
-    for (int i = 0; i < lineCount; i++) {
-        int16_t textX = boxLeft + (boxWidth - lineWidths[i]) / 2;
-
-        char lineBuffer[lineLengths[i] + 1];
-        strncpy(lineBuffer, lines[i], lineLengths[i]);
-        lineBuffer[lineLengths[i]] = '\0';
-
-        // For keyboard popup, treat first line as title if it's different from others
-        if (i == 0 && lineCount > 1) {
-            // Title line - use inverted colors (white background, black text)
-            display->setColor(WHITE);
-            int background_yOffset = 1;
-            // Check for low hanging characters
-            if (strchr(lineBuffer, 'p') || strchr(lineBuffer, 'g') || strchr(lineBuffer, 'y') || strchr(lineBuffer, 'j')) {
-                background_yOffset = -1;
-            }
-            display->fillRect(boxLeft + 1, boxTop + 1, boxWidth - 2, effectiveLineHeight - background_yOffset);
-            display->setColor(BLACK);
-            int yOffset = 3;
-            if (screen->containsCJKCharacters(lineBuffer)) {
-                screen->drawCJKString(display, textX, lineY - yOffset, lineBuffer);
-            } else {
-                display->drawString(textX, lineY - yOffset, lineBuffer);
-            }
-            display->setColor(WHITE); // Reset to white for next lines
-            lineY += (effectiveLineHeight - 2 - background_yOffset);
-        } else {
-            // Content lines - white text on black background
-            if (screen->containsCJKCharacters(lineBuffer)) {
-                screen->drawCJKString(display, textX, lineY, lineBuffer);
-            } else {
-                display->drawString(textX, lineY, lineBuffer);
-            }
-            lineY += effectiveLineHeight;
-        }
-    }
-
-    // === Scroll Bar (if needed) ===
-    if (totalLines > visibleTotalLines) {
-        const uint8_t scrollBarWidth = 5;
-        int16_t scrollBarX = boxLeft + boxWidth - scrollBarWidth - 2;
-        int16_t scrollBarY = boxTop + vPadding + effectiveLineHeight;
-        uint16_t scrollBarHeight = boxHeight - vPadding * 2 - effectiveLineHeight;
-
-        float ratio = (float)visibleTotalLines / totalLines;
-        uint16_t indicatorHeight = std::max((int)(scrollBarHeight * ratio), 4);
-        float scrollRatio = (float)(firstOptionToShow + lineCount - visibleTotalLines) / (totalLines - visibleTotalLines);
-        uint16_t indicatorY = scrollBarY + scrollRatio * (scrollBarHeight - indicatorHeight);
-
-        display->setColor(WHITE);
-        display->drawRect(scrollBarX, scrollBarY, scrollBarWidth, scrollBarHeight);
-        display->fillRect(scrollBarX + 1, indicatorY, scrollBarWidth - 2, indicatorHeight);
-    }
+    OnScreenKeyboardModule::instance().showPopup(title, content, durationMs);
 }
 
 } // namespace graphics
