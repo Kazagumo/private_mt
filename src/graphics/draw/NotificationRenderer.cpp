@@ -725,51 +725,9 @@ void NotificationRenderer::drawTextInput(OLEDDisplay *display, OLEDDisplayUiStat
         }
 
         if (inEvent.inputEvent != INPUT_BROKER_NONE) {
-            if (inEvent.inputEvent == INPUT_BROKER_UP) {
-                // high frequency for move cursor left/right than up/down with encoders
-                if (::rotaryEncoderInterruptImpl1 || ::upDownInterruptImpl1) {
-                    virtualKeyboard->moveCursorLeft();
-                } else {
-                    virtualKeyboard->moveCursorUp();
-                }
-            } else if (inEvent.inputEvent == INPUT_BROKER_DOWN) {
-                if (::rotaryEncoderInterruptImpl1 || ::upDownInterruptImpl1) {
-                    virtualKeyboard->moveCursorRight();
-                } else {
-                    virtualKeyboard->moveCursorDown();
-                }
-            } else if (inEvent.inputEvent == INPUT_BROKER_LEFT) {
-                virtualKeyboard->moveCursorLeft();
-            } else if (inEvent.inputEvent == INPUT_BROKER_RIGHT) {
-                virtualKeyboard->moveCursorRight();
-            } else if (inEvent.inputEvent == INPUT_BROKER_UP_LONG) {
-                virtualKeyboard->moveCursorUp();
-            } else if (inEvent.inputEvent == INPUT_BROKER_DOWN_LONG) {
-                virtualKeyboard->moveCursorDown();
-            } else if (inEvent.inputEvent == INPUT_BROKER_ALT_PRESS) {
-                virtualKeyboard->showNextSelection();
-#ifndef GAT562_MESH_WATCH
-            } else if (inEvent.inputEvent == INPUT_BROKER_USER_PRESS) {
-                // virtualKeyboard->moveCursorDown();
-                virtualKeyboard->deleteCharacter();
-#endif
-            } else if (inEvent.inputEvent == INPUT_BROKER_SELECT) {
-                virtualKeyboard->handlePress();
-            } else if (inEvent.inputEvent == INPUT_BROKER_SELECT_LONG) {
-                virtualKeyboard->handleLongPress();
-            } else if (inEvent.inputEvent == INPUT_BROKER_CANCEL) {
-                auto callback = textInputCallback;
-                delete virtualKeyboard;
-                virtualKeyboard = nullptr;
-                textInputCallback = nullptr;
-                resetBanner();
-                if (callback) {
-                    callback("");
-                }
-                if (screen) {
-                    screen->setFrames(graphics::Screen::FOCUS_PRESERVE);
-                }
-                return;
+            bool handled = OnScreenKeyboardModule::processVirtualKeyboardInput(inEvent, virtualKeyboard);
+            if (!handled && inEvent.inputEvent == INPUT_BROKER_CANCEL) {
+                OnScreenKeyboardModule::instance().handleInput(inEvent);
             }
             // Consume the event after processing for virtual keyboard
             inEvent.inputEvent = INPUT_BROKER_NONE;

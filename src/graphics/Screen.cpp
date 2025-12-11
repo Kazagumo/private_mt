@@ -1710,6 +1710,18 @@ int Screen::handleInputEvent(const InputEvent *event)
                 } else {
                     setOn(true);
                 }
+            } else if (event->inputEvent == INPUT_BROKER_ALT_PRESS) {
+                if (gps && screen) {
+                    gps->toggleGpsMode();
+                    if (config.position.gps_mode == meshtastic_Config_PositionConfig_GpsMode_ENABLED)
+                        screen->showSimpleBanner("GPS Enabled", 1000);
+                    else if (config.position.gps_mode == meshtastic_Config_PositionConfig_GpsMode_DISABLED)
+                        screen->showSimpleBanner("GPS Disabled", 1000);
+                    else
+                        screen->showSimpleBanner("GPS Not Present", 1000);
+                }
+            } else if (event->inputEvent == INPUT_BROKER_USER_PRESS) {
+                cannedMessageModule->LaunchWithDestination(NODENUM_BROADCAST);
             } else
 #endif
                 if (event->inputEvent == INPUT_BROKER_LEFT || event->inputEvent == INPUT_BROKER_ALT_PRESS) {

@@ -97,12 +97,18 @@ bool OnScreenKeyboardModule::processVirtualKeyboardInput(const InputEvent &event
         targetKeyboard->moveCursorDown();
         return true;
     case INPUT_BROKER_LEFT:
-    case INPUT_BROKER_ALT_PRESS:
         targetKeyboard->moveCursorLeft();
         return true;
+    case INPUT_BROKER_ALT_PRESS:
+        targetKeyboard->showNextSelection();
+        return true;
     case INPUT_BROKER_RIGHT:
-    case INPUT_BROKER_USER_PRESS:
         targetKeyboard->moveCursorRight();
+        return true;
+    case INPUT_BROKER_USER_PRESS:
+#ifndef GAT562_MESH_WATCH
+        targetKeyboard->deleteCharacter();
+#endif
         return true;
     case INPUT_BROKER_SELECT:
         targetKeyboard->handlePress();
