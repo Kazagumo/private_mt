@@ -5,11 +5,13 @@
 // https://github.com/Mymetu/TinyLora-C3
 
 // Ext Notif
+#ifndef TL_NOTIF_EXCLUDE
 #define PIN_BUZZER 11
 #define HAS_NEOPIXEL                         // Enable the use of neopixels
 #define NEOPIXEL_COUNT 1                     // How many neopixels are connected
 #define NEOPIXEL_DATA 13                     // gpio pin used to send data to the neopixels
 #define NEOPIXEL_TYPE (NEO_GRB + NEO_KHZ800) // type of neopixels in use
+#endif
 
 // I2C
 #define WIRE_INTERFACES_COUNT 1
@@ -17,14 +19,20 @@
 #define I2C_SCL 1
 
 // ADC
+#ifndef TL_NOTIF_EXCLUDE
 #define BATTERY_IMMUTABLE
 #define BATTERY_PIN 2 // A battery voltage measurement pin, voltage divider connected here to measure battery voltage
 #define ADC_CHANNEL ADC1_CHANNEL_2
 #define ADC_MULTIPLIER 2.0
+#endif
 
 // Trackball
 #define HAS_TRACKBALL_I2C 1
+#ifndef TL_NOTIF_EXCLUDE
 #define TB_INT 9
+#else
+#define TB_INT 2
+#endif
 
 // Screen
 #define HAS_SCREEN 1
