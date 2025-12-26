@@ -113,7 +113,7 @@ void scrollDown()
     if (maxScroll < 0)
         maxScroll = 0;
 
-    if (scrolledLines + 1 <= cachedHeights.size() - 2) {
+    if (scrolledLines + 1 < cachedHeights.size() - 2) {
         scrollY += cachedHeights[scrolledLines];
         scrolledLines++;
     }
@@ -691,6 +691,9 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     int scrollStop = std::max(0, totalHeight - usableScrollHeight + cachedHeights.back());
 
 #ifndef USE_EINK
+#ifdef DISABLE_AUTOSCROLL
+    manualScrolling = true;
+#endif
     uint32_t now = millis();
     float delta = (now - lastTime) / 400.0f;
     lastTime = now;

@@ -29,6 +29,7 @@
 #define TB_RIGHT 5
 #define TB_PRESS 15
 #define TB_DIRECTION FALLING
+#define DISABLE_AUTOSCROLL
 #else
 // 未按下3.3    从第一个往后是3.0  2.7  2.4   2.13   1.84   1.53   1.2   0.85
 #endif
