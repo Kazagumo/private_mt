@@ -448,8 +448,10 @@ void setup()
     LOG_INFO("\n\n Testing Purpose only,do not redistribute. \n");
 
 #if defined(ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
+#ifndef SENSECAP_INDICATOR
     // use PSRAM for malloc calls > 256 bytes
     heap_caps_malloc_extmem_enable(256);
+#endif
 #endif
 
 #if defined(DEBUG_MUTE) && defined(DEBUG_PORT)
