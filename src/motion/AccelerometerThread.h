@@ -88,29 +88,29 @@ class AccelerometerThread : public concurrency::OSThread
             sensor = new BMA423Sensor(device);
             break;
 #endif
-        case ScanI2C::DeviceType::MPU6050:
-            sensor = new MPU6050Sensor(device);
-            break;
-        case ScanI2C::DeviceType::BMX160:
-            sensor = new BMX160Sensor(device);
-            break;
-        case ScanI2C::DeviceType::LIS3DH:
-            sensor = new LIS3DHSensor(device);
-            break;
-        case ScanI2C::DeviceType::LSM6DS3:
-            sensor = new LSM6DS3Sensor(device);
-            break;
+        // case ScanI2C::DeviceType::MPU6050:
+        //     sensor = new MPU6050Sensor(device);
+        //     break;
+        // case ScanI2C::DeviceType::BMX160:
+        //     sensor = new BMX160Sensor(device);
+        //     break;
+        // case ScanI2C::DeviceType::LIS3DH:
+        //     sensor = new LIS3DHSensor(device);
+        //     break;
+        // case ScanI2C::DeviceType::LSM6DS3:
+        //     sensor = new LSM6DS3Sensor(device);
+        //     break;
 #ifdef HAS_STK8XXX
         case ScanI2C::DeviceType::STK8BAXX:
             sensor = new STK8XXXSensor(device);
             break;
 #endif
-        case ScanI2C::DeviceType::ICM20948:
-            sensor = new ICM20948Sensor(device);
-            break;
-        case ScanI2C::DeviceType::BMM150:
-            sensor = new BMM150Sensor(device);
-            break;
+        // case ScanI2C::DeviceType::ICM20948:
+        //     sensor = new ICM20948Sensor(device);
+        //     break;
+        // case ScanI2C::DeviceType::BMM150:
+        //     sensor = new BMM150Sensor(device);
+        //     break;
 #ifdef HAS_QMA6100P
         case ScanI2C::DeviceType::QMA6100P:
             sensor = new QMA6100PSensor(device);
