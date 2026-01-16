@@ -634,7 +634,6 @@ void drawSystemScreen(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x
              router->getInterface()->getSNR());
     char appversionstr_formatted[40];
     char *lastDot = nullptr;
-#if defined(M5STACK_UNITC6L)
     if (lastDot != nullptr) {
         *lastDot = '\0'; // truncate string
     }
@@ -691,7 +690,6 @@ void drawSystemScreen(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x
                                 api_state);
         }
     }
-#endif
 
     graphics::drawCommonFooter(display, x, y);
 }
