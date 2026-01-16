@@ -115,10 +115,6 @@ namespace graphics
 extern int bannerSignalBars;
 }
 extern ScanI2C::DeviceAddress cardkb_found;
-#ifdef CJK_ENABLE
-extern graphics::Screen *screen;
-#endif
-extern bool graphics::isMuted;
 extern bool osk_found;
 
 static const char *cannedMessagesConfigFile = "/prefs/cannedConf.proto";
@@ -308,17 +304,17 @@ void CannedMessageModule::drawHeader(OLEDDisplay *display, int16_t x, int16_t y,
 #else
 void CannedMessageModule::drawHeader(OLEDDisplay *display, int16_t x, int16_t y, char *buffer)
 {
-    if (graphics::isHighResolution) {
+    if (graphics::currentResolution == graphics::ScreenResolution::High) {
         if (this->dest == NODENUM_BROADCAST) {
-            display->drawStringf(x, y, buffer, "To: Broadcast@%s", channels.getName(this->channel));
+            display->drawStringf(x, y, buffer, "To: #%s", channels.getName(this->channel));
         } else {
-            display->drawStringf(x, y, buffer, "To: %s", getNodeName(this->dest));
+            display->drawStringf(x, y, buffer, "To: @%s", getNodeName(this->dest));
         }
     } else {
         if (this->dest == NODENUM_BROADCAST) {
-            display->drawStringf(x, y, buffer, "To: Broadc@%.5s", channels.getName(this->channel));
+            display->drawStringf(x, y, buffer, "To: #%.20s", channels.getName(this->channel));
         } else {
-            display->drawStringf(x, y, buffer, "To: %s", getNodeName(this->dest));
+            display->drawStringf(x, y, buffer, "To: @%s", getNodeName(this->dest));
         }
     }
 }
@@ -1099,24 +1095,7 @@ void CannedMessageModule::sendText(NodeNum dest, ChannelIndex channel, const cha
 
     this->waitingForAck = true;
 
-    // Log outgoing message
-    LOG_INFO("Send message id=%u, dest=%x, msg=%.*s", p->id, p->to, p->decoded.payload.size, p->decoded.payload.bytes);
-
-    if (p->to != 0xffffffff) {
-        // Only add as favorite if our role is NOT CLIENT_BASE
-        if (config.device.role != 12) {
-            LOG_INFO("Proactively adding %x as favorite node", p->to);
-            nodeDB->set_favorite(true, p->to);
-        } else {
-            LOG_DEBUG("Not favoriting node %x as we are CLIENT_BASE role", p->to);
-        }
-
-        screen->setFrames(graphics::Screen::FOCUS_PRESERVE);
-        p->pki_encrypted = true;
-        p->channel = 0;
-    }
-
-    // Send to mesh and phone (even if no phone connected, to track ACKs)
+    // Send to mesh (PKI-encrypted if conditions above matched)
     service->sendToMesh(p, RX_SRC_LOCAL, true);
 
     // Show banner immediately
@@ -1832,8 +1811,9 @@ void CannedMessageModule::drawDestinationSelectionScreen(OLEDDisplay *display, O
                     strncpy(entryText, node->user.long_name, sizeof(entryText) - 1);
                     entryText[sizeof(entryText) - 1] = '\0';
                 }
-                int availWidth =
-                    display->getWidth() - (graphics::isHighResolution ? 40 : 20) - ((node && node->is_favorite) ? 10 : 0);
+                int availWidth = display->getWidth() -
+                                 ((graphics::currentResolution == graphics::ScreenResolution::High) ? 40 : 20) -
+                                 ((node && node->is_favorite) ? 10 : 0);
                 if (availWidth < 0)
                     availWidth = 0;
 
@@ -2026,7 +2006,7 @@ void CannedMessageModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *st
         return;
     }
 
-    // === Disabled Screen ===
+    // Disabled Screen
     if (this->runState == CANNED_MESSAGE_RUN_STATE_DISABLED) {
         display->setTextAlignment(TEXT_ALIGN_LEFT);
         display->setFont(FONT_SMALL);
@@ -2472,7 +2452,8 @@ ProcessMessage CannedMessageModule::handleReceived(const meshtastic_MeshPacket &
                 strncpy(nodeName, src, sizeof(nodeName) - 1);
                 nodeName[sizeof(nodeName) - 1] = '\0';
 
-                int availWidth = display->getWidth() - (graphics::isHighResolution ? 60 : 30);
+                int availWidth =
+                    display->getWidth() - ((graphics::currentResolution == graphics::ScreenResolution::High) ? 60 : 30);
                 if (availWidth < 0)
                     availWidth = 0;
 

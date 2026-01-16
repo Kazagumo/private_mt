@@ -490,7 +490,13 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
     const int navHeight = FONT_HEIGHT_SMALL;
     const int scrollBottom = SCREEN_HEIGHT - navHeight;
     const int usableHeight = scrollBottom;
-    const int textWidth = SCREEN_WIDTH;
+    constexpr int LEFT_MARGIN = 2;
+    constexpr int RIGHT_MARGIN = 2;
+    constexpr int SCROLLBAR_WIDTH = 3;
+
+    const int leftTextWidth = SCREEN_WIDTH - LEFT_MARGIN - RIGHT_MARGIN;
+
+    const int rightTextWidth = SCREEN_WIDTH - LEFT_MARGIN - RIGHT_MARGIN - SCROLLBAR_WIDTH;
 
     // Title string depending on mode
     static char titleBuf[32];
@@ -622,12 +628,8 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
 
         // If this is *our own* message, override senderBuf to who the recipient was
         bool mine = (m.sender == nodeDB->getNodeNum());
-        if (mine) {
-            if (node_recipient && node_recipient->has_user) {
-                strcpy(senderBuf, node_recipient->user.long_name);
-            } else {
-                snprintf(senderBuf, sizeof(senderBuf), "%X", m.dest);
-            }
+        if (mine && node_recipient && node_recipient->has_user) {
+            strcpy(senderBuf, node_recipient->user.long_name);
         }
 
         // Shrink Sender name if needed
@@ -670,7 +672,8 @@ void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
 
         const char *msgText = MessageStore::getText(m);
 
-        std::vector<std::string> wrapped = generateLines(display, "", msgText, textWidth);
+        int wrapWidth = mine ? rightTextWidth : leftTextWidth;
+        std::vector<std::string> wrapped = generateLines(display, "", msgText, wrapWidth);
         for (auto &ln : wrapped) {
             allLines.push_back(ln);
             isMine.push_back(mine);
@@ -984,7 +987,7 @@ void handleNewMessage(OLEDDisplay *display, const StoredMessage &sm, const mesht
             strncpy(longName, node->user.long_name, sizeof(longName) - 1);
             longName[sizeof(longName) - 1] = '\0';
         }
-        int availWidth = display->getWidth() - (isHighResolution ? 40 : 20);
+        int availWidth = display->getWidth() - ((currentResolution == ScreenResolution::High) ? 40 : 20);
         if (availWidth < 0)
             availWidth = 0;
 
@@ -1028,11 +1031,11 @@ void handleNewMessage(OLEDDisplay *display, const StoredMessage &sm, const mesht
                 return;
 
             if (longName && longName[0]) {
-#if defined(M5STACK_UNITC6L)
-                strcpy(banner, "New Message");
-#else
-                snprintf(banner, sizeof(banner), "New Message from\n%s", longName);
-#endif
+                if (currentResolution == ScreenResolution::UltraLow) {
+                    strcpy(banner, "New Message");
+                } else {
+                    snprintf(banner, sizeof(banner), "New Message from\n%s", longName);
+                }
             } else
                 strcpy(banner, "New Message");
         }

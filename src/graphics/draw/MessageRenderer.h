@@ -6,6 +6,7 @@
 #include "graphics/emotes.h"
 #include "input/InputBroker.h"
 #include "mesh/generated/meshtastic/mesh.pb.h" // for meshtastic_MeshPacket
+#include <cstdint>
 #include <string>
 #include <vector>
 

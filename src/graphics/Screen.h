@@ -596,6 +596,42 @@ class Screen : public concurrency::OSThread
 
 #endif
 
+#if defined(OLED_GR)
+
+        switch (last) {
+        case 0xC3: {
+            SKIPREST = false;
+            return (uint8_t)(ch | 0xC0);
+        }
+        // Map UTF-8 Greek chars to Windows-1253 (CP-1253) ASCII codes
+        case 0xCE: {
+            SKIPREST = false;
+            // Uppercase Greek: Α-Ρ (U+0391-U+03A1) -> CP-1253 193-209
+            if (ch >= 145 && ch <= 161)
+                return (uint8_t)(ch + 48);
+            // Uppercase Greek: Σ-Ω (U+03A3-U+03A9) -> CP-1253 211-217
+            else if (ch >= 163 && ch <= 169)
+                return (uint8_t)(ch + 48);
+            // Lowercase Greek: α-ρ (U+03B1-U+03C1) -> CP-1253 225-241
+            else if (ch >= 177 && ch <= 193)
+                return (uint8_t)(ch + 48);
+            break;
+        }
+        case 0xCF: {
+            SKIPREST = false;
+            // Lowercase Greek: ς-ω (U+03C2-U+03C9) -> CP-1253 242-249
+            if (ch >= 130 && ch <= 137)
+                return (uint8_t)(ch + 112);
+            break;
+        }
+        }
+
+        // We want to strip out prefix chars for two-byte Greek char formats
+        if (ch == 0xC2 || ch == 0xC3 || ch == 0xCE || ch == 0xCF)
+            return (uint8_t)0;
+
+#endif
+
         // If we already returned an unconvertable-character symbol for this unconvertable-character sequence, return NULs for the
         // rest of it
         if (SKIPREST)
@@ -613,6 +649,7 @@ class Screen : public concurrency::OSThread
 
     // Handle observer events
     int handleStatusUpdate(const meshtastic::Status *arg);
+    int handleTextMessage(const meshtastic_MeshPacket *packet);
     int handleUIFrameEvent(const UIFrameEvent *arg);
     int handleTextMessage(const meshtastic_MeshPacket *packet);
     int handleInputEvent(const InputEvent *arg);
@@ -692,7 +729,8 @@ class Screen : public concurrency::OSThread
             uint8_t gps = 255;
             uint8_t home = 255;
             uint8_t textMessage = 255;
-            uint8_t nodelist = 255;
+            uint8_t nodelist_nodes = 255;
+            uint8_t nodelist_location = 255;
             uint8_t nodelist_lastheard = 255;
             uint8_t nodelist_hopsignal = 255;
             uint8_t nodelist_distance = 255;
@@ -715,7 +753,8 @@ class Screen : public concurrency::OSThread
         bool home = false;
         bool clock = false;
 #ifndef USE_EINK
-        bool nodelist = false;
+        bool nodelist_nodes = false;
+        bool nodelist_location = false;
 #endif
 #ifdef USE_EINK
         bool nodelist_lastheard = false;
@@ -723,7 +762,9 @@ class Screen : public concurrency::OSThread
         bool nodelist_distance = false;
 #endif
 #if HAS_GPS
+#ifdef USE_EINK
         bool nodelist_bearings = false;
+#endif
         bool gps = false;
 #endif
         bool lora = false;
@@ -749,6 +790,8 @@ class Screen : public concurrency::OSThread
     // Whether we are showing the regular screen (as opposed to booth screen or
     // Bluetooth PIN screen)
     bool showingNormalScreen = false;
+    /// Track USB power state to only wake screen on actual power state changes
+    bool lastPowerUSBState = false;
 
     // Implementation to Adjust Brightness
     uint8_t brightness = BRIGHTNESS_DEFAULT; // H = 254, MH = 192, ML = 130 L = 103

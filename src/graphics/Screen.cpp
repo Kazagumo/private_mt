@@ -327,6 +327,7 @@ Screen::Screen(ScanI2C::DeviceAddress address, meshtastic_Config_DisplayConfig_O
 
     // Only validate the combined value once
     if (rawRGB > 0 && rawRGB <= 255255255) {
+        LOG_INFO("Setting screen RGB color to user chosen: 0x%06X", rawRGB);
         // Extract each component as a normal int first
         int r = (rawRGB >> 16) & 0xFF;
         int g = (rawRGB >> 8) & 0xFF;
@@ -334,6 +335,16 @@ Screen::Screen(ScanI2C::DeviceAddress address, meshtastic_Config_DisplayConfig_O
         if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
             TFT_MESH = COLOR565(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b));
         }
+#ifdef TFT_MESH_OVERRIDE
+    } else if (rawRGB == 0) {
+        LOG_INFO("Setting screen RGB color to TFT_MESH_OVERRIDE: 0x%04X", TFT_MESH_OVERRIDE);
+        // Default to TFT_MESH_OVERRIDE if available
+        TFT_MESH = TFT_MESH_OVERRIDE;
+#endif
+    } else {
+        // Default best readable yellow color
+        LOG_INFO("Setting screen RGB color to default: (255,255,128)");
+        TFT_MESH = COLOR565(255, 255, 128);
     }
 
 #if defined(USE_SH1106) || defined(USE_SH1107) || defined(USE_SH1107_128_64)
@@ -669,7 +680,7 @@ void Screen::setup()
 
     //  Turn on display and trigger first draw
     handleSetOn(true);
-    determineResolution(dispdev->height(), dispdev->width());
+    graphics::currentResolution = graphics::determineScreenResolution(dispdev->height(), dispdev->width());
     ui->update();
 #ifndef USE_EINK
     ui->update(); // Some SSD1306 clones drop the first draw, so run twice
@@ -831,7 +842,7 @@ int32_t Screen::runOnce()
 #endif
     }
 #endif
-    if (!NotificationRenderer::isOverlayBannerShowing() && rebootAtMsec != 0) {
+    if (!NotificationRenderer::isOverlayBannerShowing() && rebootAtMsec != 0 && !suppressRebootBanner) {
 #ifdef ARCH_NRF52
         switch (nrf52_GPREGRET) {
         case 0x00:
@@ -1075,10 +1086,15 @@ void Screen::setFrames(FrameFocus focus)
     indicatorIcons.push_back(icon_mail);
 
 #ifndef USE_EINK
-    if (!hiddenFrames.nodelist) {
-        fsi.positions.nodelist = numframes;
-        normalFrames[numframes++] = graphics::NodeListRenderer::drawDynamicNodeListScreen;
+    if (!hiddenFrames.nodelist_nodes) {
+        fsi.positions.nodelist_nodes = numframes;
+        normalFrames[numframes++] = graphics::NodeListRenderer::drawDynamicListScreen_Nodes;
         indicatorIcons.push_back(icon_nodes);
+    }
+    if (!hiddenFrames.nodelist_location) {
+        fsi.positions.nodelist_location = numframes;
+        normalFrames[numframes++] = graphics::NodeListRenderer::drawDynamicListScreen_Location;
+        indicatorIcons.push_back(icon_list);
     }
 #endif
 
@@ -1101,11 +1117,13 @@ void Screen::setFrames(FrameFocus focus)
     }
 #endif
 #if HAS_GPS
+#ifdef USE_EINK
     if (!hiddenFrames.nodelist_bearings) {
         fsi.positions.nodelist_bearings = numframes;
         normalFrames[numframes++] = graphics::NodeListRenderer::drawNodeListWithCompasses;
         indicatorIcons.push_back(icon_list);
     }
+#endif
     if (!hiddenFrames.gps) {
         fsi.positions.gps = numframes;
         normalFrames[numframes++] = graphics::UIRenderer::drawCompassAndLocationScreen;
@@ -1267,8 +1285,11 @@ void Screen::setFrameImmediateDraw(FrameCallback *drawFrames)
 void Screen::toggleFrameVisibility(const std::string &frameName)
 {
 #ifndef USE_EINK
-    if (frameName == "nodelist") {
-        hiddenFrames.nodelist = !hiddenFrames.nodelist;
+    if (frameName == "nodelist_nodes") {
+        hiddenFrames.nodelist_nodes = !hiddenFrames.nodelist_nodes;
+    }
+    if (frameName == "nodelist_location") {
+        hiddenFrames.nodelist_location = !hiddenFrames.nodelist_location;
     }
 #endif
 #ifdef USE_EINK
@@ -1283,9 +1304,11 @@ void Screen::toggleFrameVisibility(const std::string &frameName)
     }
 #endif
 #if HAS_GPS
+#ifdef USE_EINK
     if (frameName == "nodelist_bearings") {
         hiddenFrames.nodelist_bearings = !hiddenFrames.nodelist_bearings;
     }
+#endif
     if (frameName == "gps") {
         hiddenFrames.gps = !hiddenFrames.gps;
     }
@@ -1307,8 +1330,10 @@ void Screen::toggleFrameVisibility(const std::string &frameName)
 bool Screen::isFrameHidden(const std::string &frameName) const
 {
 #ifndef USE_EINK
-    if (frameName == "nodelist")
-        return hiddenFrames.nodelist;
+    if (frameName == "nodelist_nodes")
+        return hiddenFrames.nodelist_nodes;
+    if (frameName == "nodelist_location")
+        return hiddenFrames.nodelist_location;
 #endif
 #ifdef USE_EINK
     if (frameName == "nodelist_lastheard")
@@ -1319,8 +1344,10 @@ bool Screen::isFrameHidden(const std::string &frameName) const
         return hiddenFrames.nodelist_distance;
 #endif
 #if HAS_GPS
+#ifdef USE_EINK
     if (frameName == "nodelist_bearings")
         return hiddenFrames.nodelist_bearings;
+#endif
     if (frameName == "gps")
         return hiddenFrames.gps;
 #endif
@@ -1442,9 +1469,14 @@ int Screen::handleStatusUpdate(const meshtastic::Status *arg)
         }
         nodeDB->updateGUI = false;
         break;
-    case STATUS_TYPE_POWER:
-        forceDisplay(true);
+    case STATUS_TYPE_POWER: {
+        bool currentUSB = powerStatus->getHasUSB();
+        if (currentUSB != lastPowerUSBState) {
+            lastPowerUSBState = currentUSB;
+            forceDisplay(true);
+        }
         break;
+    }
     }
 
     return 0;
@@ -1552,11 +1584,11 @@ int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
                     screen->showSimpleBanner(banner, 3000);
                 } else if (!channel.settings.has_module_settings || !channel.settings.module_settings.is_muted) {
                     if (longName && longName[0]) {
-#if defined(M5STACK_UNITC6L)
-                        strcpy(banner, "New Message");
-#else
-                        snprintf(banner, sizeof(banner), "New Message from\n%s", longName);
-#endif
+                        if (currentResolution == ScreenResolution::UltraLow) {
+                            strcpy(banner, "New Message");
+                        } else {
+                            snprintf(banner, sizeof(banner), "New Message from\n%s", longName);
+                        }
                     } else {
                         strcpy(banner, "New Message");
                     }
@@ -1672,6 +1704,25 @@ int Screen::handleInputEvent(const InputEvent *event)
             }
         }
     }
+    // UP/DOWN in node list screens scrolls through node pages
+    if (ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_nodes ||
+        ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_location ||
+        ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_lastheard ||
+        ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_hopsignal ||
+        ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_distance ||
+        ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_bearings) {
+        if (event->inputEvent == INPUT_BROKER_UP) {
+            graphics::NodeListRenderer::scrollUp();
+            setFastFramerate();
+            return 0;
+        }
+
+        if (event->inputEvent == INPUT_BROKER_DOWN) {
+            graphics::NodeListRenderer::scrollDown();
+            setFastFramerate();
+            return 0;
+        }
+    }
     // Use left or right input from a keyboard to move between frames,
     // so long as a mesh module isn't using these events for some other purpose
     if (showingNormalScreen) {
@@ -1730,6 +1781,12 @@ int Screen::handleInputEvent(const InputEvent *event)
                 showFrame(FrameDirection::PREVIOUS);
             } else if (event->inputEvent == INPUT_BROKER_RIGHT || event->inputEvent == INPUT_BROKER_USER_PRESS) {
                 showFrame(FrameDirection::NEXT);
+            } else if (event->inputEvent == INPUT_BROKER_UP_LONG) {
+                // Long press up button for fast frame switching
+                showPrevFrame();
+            } else if (event->inputEvent == INPUT_BROKER_DOWN_LONG) {
+                // Long press down button for fast frame switching
+                showNextFrame();
             } else if ((event->inputEvent == INPUT_BROKER_UP || event->inputEvent == INPUT_BROKER_DOWN) &&
                        this->ui->getUiState()->currentFrame == framesetInfo.positions.home) {
                 cannedMessageModule->LaunchWithDestination(NODENUM_BROADCAST);
@@ -1750,17 +1807,18 @@ int Screen::handleInputEvent(const InputEvent *event)
                     if (!messageStore.getMessages().empty()) {
                         menuHandler::messageResponseMenu();
                     } else {
-#if defined(M5STACK_UNITC6L)
-                        menuHandler::textMessageMenu();
-#else
-                        menuHandler::textMessageBaseMenu();
-#endif
+                        if (currentResolution == ScreenResolution::UltraLow) {
+                            menuHandler::textMessageMenu();
+                        } else {
+                            menuHandler::textMessageBaseMenu();
+                        }
                     }
                 } else if (framesetInfo.positions.firstFavorite != 255 &&
                            this->ui->getUiState()->currentFrame >= framesetInfo.positions.firstFavorite &&
                            this->ui->getUiState()->currentFrame <= framesetInfo.positions.lastFavorite) {
                     menuHandler::favoriteBaseMenu();
-                } else if (this->ui->getUiState()->currentFrame == framesetInfo.positions.nodelist ||
+                } else if (this->ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_nodes ||
+                           this->ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_location ||
                            this->ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_lastheard ||
                            this->ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_hopsignal ||
                            this->ui->getUiState()->currentFrame == framesetInfo.positions.nodelist_distance ||
