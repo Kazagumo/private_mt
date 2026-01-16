@@ -634,66 +634,66 @@ void drawSystemScreen(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x
              router->getInterface()->getSNR());
     char appversionstr_formatted[40];
     char *lastDot = nullptr;
-}
 #if defined(M5STACK_UNITC6L)
-if (lastDot != nullptr) {
-    *lastDot = '\0'; // truncate string
-}
-int textWidth = display->getStringWidth(appversionstr);
-int nameX = (SCREEN_WIDTH - textWidth) / 2;
-
-display->drawString(nameX, getTextPositions(display)[line++], appversionstr);
-
-if (SCREEN_HEIGHT > 64 || (SCREEN_HEIGHT <= 64 && line <= 5)) { // Only show uptime if the screen can show it
-    char uptimeStr[32] = "";
-    uint32_t uptime = millis() / 1000;
-    uint32_t days = uptime / 86400;
-    uint32_t hours = (uptime % 86400) / 3600;
-    uint32_t mins = (uptime % 3600) / 60;
-    // Show as "Up: 2d 3h", "Up: 5h 14m", or "Up: 37m"
-    if (days)
-        snprintf(uptimeStr, sizeof(uptimeStr), " Up: %ud %uh Ver: %s", days, hours, optstr(APP_VERSION_SHORT));
-    else if (hours)
-        snprintf(uptimeStr, sizeof(uptimeStr), " Up: %uh %um Ver: %s", hours, mins, optstr(APP_VERSION_SHORT));
-    else
-        snprintf(uptimeStr, sizeof(uptimeStr), " Uptime: %um Ver: %s", mins, optstr(APP_VERSION_SHORT));
-    textWidth = display->getStringWidth(uptimeStr);
-    nameX = (SCREEN_WIDTH - textWidth) / 2;
-    display->drawString(nameX, getTextPositions(display)[line++], uptimeStr);
-}
-
-if (SCREEN_HEIGHT > 64 || (SCREEN_HEIGHT <= 64 && line <= 5)) { // Only show API state if the screen can show it
-    char api_state[32] = "";
-    const char *clientWord = nullptr;
-
-    // Determine if narrow or wide screen
-    if (currentResolution == ScreenResolution::High) {
-        clientWord = "Client";
-    } else {
-        clientWord = "App";
+    if (lastDot != nullptr) {
+        *lastDot = '\0'; // truncate string
     }
-    snprintf(api_state, sizeof(api_state), "No %ss Connected", clientWord);
+    int textWidth = display->getStringWidth(appversionstr);
+    int nameX = (SCREEN_WIDTH - textWidth) / 2;
 
-    if (service->api_state == service->STATE_BLE) {
-        snprintf(api_state, sizeof(api_state), "%s Connected (BLE)", clientWord);
-    } else if (service->api_state == service->STATE_WIFI) {
-        snprintf(api_state, sizeof(api_state), "%s Connected (WiFi)", clientWord);
-    } else if (service->api_state == service->STATE_SERIAL) {
-        snprintf(api_state, sizeof(api_state), "%s Connected (Serial)", clientWord);
-    } else if (service->api_state == service->STATE_PACKET) {
-        snprintf(api_state, sizeof(api_state), "%s Connected (Internal)", clientWord);
-    } else if (service->api_state == service->STATE_HTTP) {
-        snprintf(api_state, sizeof(api_state), "%s Connected (HTTP)", clientWord);
-    } else if (service->api_state == service->STATE_ETH) {
-        snprintf(api_state, sizeof(api_state), "%s Connected (Ethernet)", clientWord);
-    }
-    if (api_state[0] != '\0') {
-        display->drawString((SCREEN_WIDTH - display->getStringWidth(api_state)) / 2, getTextPositions(display)[line++],
-                            api_state);
-    }
-}
+    display->drawString(nameX, getTextPositions(display)[line++], appversionstr);
 
-graphics::drawCommonFooter(display, x, y);
+    if (SCREEN_HEIGHT > 64 || (SCREEN_HEIGHT <= 64 && line <= 5)) { // Only show uptime if the screen can show it
+        char uptimeStr[32] = "";
+        uint32_t uptime = millis() / 1000;
+        uint32_t days = uptime / 86400;
+        uint32_t hours = (uptime % 86400) / 3600;
+        uint32_t mins = (uptime % 3600) / 60;
+        // Show as "Up: 2d 3h", "Up: 5h 14m", or "Up: 37m"
+        if (days)
+            snprintf(uptimeStr, sizeof(uptimeStr), " Up: %ud %uh Ver: %s", days, hours, optstr(APP_VERSION_SHORT));
+        else if (hours)
+            snprintf(uptimeStr, sizeof(uptimeStr), " Up: %uh %um Ver: %s", hours, mins, optstr(APP_VERSION_SHORT));
+        else
+            snprintf(uptimeStr, sizeof(uptimeStr), " Uptime: %um Ver: %s", mins, optstr(APP_VERSION_SHORT));
+        textWidth = display->getStringWidth(uptimeStr);
+        nameX = (SCREEN_WIDTH - textWidth) / 2;
+        display->drawString(nameX, getTextPositions(display)[line++], uptimeStr);
+    }
+
+    if (SCREEN_HEIGHT > 64 || (SCREEN_HEIGHT <= 64 && line <= 5)) { // Only show API state if the screen can show it
+        char api_state[32] = "";
+        const char *clientWord = nullptr;
+
+        // Determine if narrow or wide screen
+        if (currentResolution == ScreenResolution::High) {
+            clientWord = "Client";
+        } else {
+            clientWord = "App";
+        }
+        snprintf(api_state, sizeof(api_state), "No %ss Connected", clientWord);
+
+        if (service->api_state == service->STATE_BLE) {
+            snprintf(api_state, sizeof(api_state), "%s Connected (BLE)", clientWord);
+        } else if (service->api_state == service->STATE_WIFI) {
+            snprintf(api_state, sizeof(api_state), "%s Connected (WiFi)", clientWord);
+        } else if (service->api_state == service->STATE_SERIAL) {
+            snprintf(api_state, sizeof(api_state), "%s Connected (Serial)", clientWord);
+        } else if (service->api_state == service->STATE_PACKET) {
+            snprintf(api_state, sizeof(api_state), "%s Connected (Internal)", clientWord);
+        } else if (service->api_state == service->STATE_HTTP) {
+            snprintf(api_state, sizeof(api_state), "%s Connected (HTTP)", clientWord);
+        } else if (service->api_state == service->STATE_ETH) {
+            snprintf(api_state, sizeof(api_state), "%s Connected (Ethernet)", clientWord);
+        }
+        if (api_state[0] != '\0') {
+            display->drawString((SCREEN_WIDTH - display->getStringWidth(api_state)) / 2, getTextPositions(display)[line++],
+                                api_state);
+        }
+    }
+#endif
+
+    graphics::drawCommonFooter(display, x, y);
 }
 
 // ****************************
@@ -735,7 +735,6 @@ void drawChirpy(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int1
     display->drawString(textX, getTextPositions(display)[line++], "World!");
 }
 
-#endif
 } // namespace DebugRenderer
 } // namespace graphics
 #endif
