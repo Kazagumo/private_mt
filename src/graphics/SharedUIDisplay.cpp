@@ -55,19 +55,6 @@ void decomposeTime(uint32_t rtc_sec, int &hour, int &minute, int &second)
     second = hms % SEC_PER_MIN;
 }
 
-void decomposeTime(uint32_t rtc_sec, int &hour, int &minute, int &second)
-{
-    hour = 0;
-    minute = 0;
-    second = 0;
-    if (rtc_sec == 0)
-        return;
-    uint32_t hms = (rtc_sec % SEC_PER_DAY + SEC_PER_DAY) % SEC_PER_DAY;
-    hour = hms / SEC_PER_HOUR;
-    minute = (hms % SEC_PER_HOUR) / SEC_PER_MIN;
-    second = hms % SEC_PER_MIN;
-}
-
 // === Shared External State ===
 bool hasUnreadMessage = false;
 ScreenResolution currentResolution = ScreenResolution::Low;

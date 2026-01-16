@@ -269,7 +269,7 @@ int CannedMessageModule::splitConfiguredMessages()
 #ifdef CJK_ENABLE
 void CannedMessageModule::drawHeader(OLEDDisplay *display, int16_t x, int16_t y, char *buffer)
 {
-    if (graphics::isHighResolution) {
+    if (graphics::currentResolution == graphics::ScreenResolution::High) {
         if (this->dest == NODENUM_BROADCAST) {
             if (screen->containsCJKCharacters(channels.getName(this->channel))) {
                 screen->drawCJKStringf(display, x, y, buffer, "To: Broadcast@%s", channels.getName(this->channel));

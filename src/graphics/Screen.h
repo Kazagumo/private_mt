@@ -649,7 +649,6 @@ class Screen : public concurrency::OSThread
 
     // Handle observer events
     int handleStatusUpdate(const meshtastic::Status *arg);
-    int handleTextMessage(const meshtastic_MeshPacket *packet);
     int handleUIFrameEvent(const UIFrameEvent *arg);
     int handleTextMessage(const meshtastic_MeshPacket *packet);
     int handleInputEvent(const InputEvent *arg);
