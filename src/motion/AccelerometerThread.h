@@ -88,6 +88,7 @@ class AccelerometerThread : public concurrency::OSThread
             sensor = new BMA423Sensor(device);
             break;
 #endif
+#ifndef ARCH_NRF52
         case ScanI2C::DeviceType::MPU6050:
             sensor = new MPU6050Sensor(device);
             break;
@@ -100,17 +101,20 @@ class AccelerometerThread : public concurrency::OSThread
         case ScanI2C::DeviceType::LSM6DS3:
             sensor = new LSM6DS3Sensor(device);
             break;
+#endif
 #ifdef HAS_STK8XXX
         case ScanI2C::DeviceType::STK8BAXX:
             sensor = new STK8XXXSensor(device);
             break;
 #endif
+#ifndef ARCH_NRF52
         case ScanI2C::DeviceType::ICM20948:
             sensor = new ICM20948Sensor(device);
             break;
         case ScanI2C::DeviceType::BMM150:
             sensor = new BMM150Sensor(device);
             break;
+#endif
 #ifdef HAS_QMA6100P
         case ScanI2C::DeviceType::QMA6100P:
             sensor = new QMA6100PSensor(device);

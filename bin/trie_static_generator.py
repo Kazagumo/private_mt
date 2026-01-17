@@ -10,19 +10,22 @@ import sys
 import os
 import argparse
 
-weights_exclude = -1 # minimum weight accepted for device
-
 words_included = []
 
 parser = argparse.ArgumentParser(description="Generate a static C++ trie header from a pinyin word list")
 parser.add_argument('input', help='input dictionary file')
 parser.add_argument('output', help='output header file')
+parser.add_argument('weights', help='minimum weight accepted for device')
 parser.add_argument('--progmem', '-p', action='store_true', help='annotate large arrays with PROGMEM (for AVR/embedded)')
 args = parser.parse_args()
 
 INPUT = args.input
 OUTPUT = args.output
 USE_PROGMEM = args.progmem
+if args.weights:
+    weights_exclude = int(args.weights) # minimum weight accepted for device
+else:
+    weights_exclude = -1 # minimum weight accepted for device
 
 # Node structure in memory
 class Node:

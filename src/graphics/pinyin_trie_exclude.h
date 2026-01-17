@@ -13,11 +13,6 @@ static const char *PINYIN_TOKENS[] = {
     "ce", "guo", "hao", "jie", "lu", "ni", "shi", "zhong", "zuo",
 };
 
-// unique token initials (single lowercase letter)
-static const char PINYIN_INITIALS[] = {
-    'c', 'g', 'h', 'j', 'l', 'n', 's', 'z',
-};
-
 // mapping from initial index -> flat token id list (indices into PINYIN_TOKENS)
 static const uint16_t INITIAL_TOKEN_IDS[] = {
     0, 1, 2, 3, 4, 5, 6, 7, 8,

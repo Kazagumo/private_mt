@@ -1,6 +1,8 @@
 #pragma once
-#ifdef EXCLUDE_PY
+#if defined(EXCLUDE_PY)
 #include "pinyin_trie_exclude.h"
+#elif defined(SINGLE_PY)
+#include "pinyin_trie_single.h"
 #else
 #include "pinyin_trie_static.h"
 #endif
@@ -14,38 +16,6 @@
 std::string lastPinyin = "";
 std::vector<std::string> lastresult = {};
 
-// Platform-aware accessors for WORDS_DATA, WORDS_OFFSETS, WORDS_WEIGHT
-// On NRF52, WORDS_DATA/WORDS_OFFSETS/WORDS_WEIGHT are in PROGMEM and must be read via pgm_read_*.
-#if ARCH_NRF52
-static inline void fill_word_buf_from_progmem(uint32_t off, char *buf, size_t buflen)
-{
-    const unsigned char *p = WORDS_DATA + off;
-    size_t i = 0;
-    while (i + 1 < buflen) {
-        unsigned char c = pgm_read_byte(p + i);
-        buf[i] = (char)c;
-        if (c == 0)
-            break;
-        i++;
-    }
-    buf[buflen - 1] = 0;
-}
-static inline const char *get_word_ptr_buf(uint32_t idx, char *buf, size_t buflen)
-{
-    uint32_t off = (uint32_t)pgm_read_dword(&(WORDS_OFFSETS[idx]));
-    fill_word_buf_from_progmem(off, buf, buflen);
-    return buf;
-}
-static inline uint32_t get_word_weight(uint32_t idx)
-{
-    return (uint32_t)pgm_read_dword(&(WORDS_WEIGHT[idx]));
-}
-// Accessor for WORD_CHAR_COUNT (number of characters in stored word)
-static inline uint8_t get_word_char_count(uint32_t idx)
-{
-    return (uint8_t)pgm_read_byte(&(WORD_CHAR_COUNT[idx]));
-}
-#else
 static inline const char *get_word_ptr_buf(uint32_t idx, char *buf, size_t buflen)
 {
     uint32_t off = WORDS_OFFSETS[idx];
@@ -67,9 +37,12 @@ static inline uint32_t get_word_weight(uint32_t idx)
 }
 static inline uint8_t get_word_char_count(uint32_t idx)
 {
+#ifdef SINGLE_PY
+    return 1;
+#else
     return WORD_CHAR_COUNT[idx];
-}
 #endif
+}
 
 // Precomputed match table used by multi_mixed_search DFS. Internal linkage per TU.
 static std::vector<std::vector<int>> __pinyin_match_at_global;
