@@ -18,7 +18,11 @@ std::vector<std::string> lastresult = {};
 
 static inline const char *get_word_ptr_buf(uint32_t idx, char *buf, size_t buflen)
 {
+#ifdef SINGLE_PY
+    uint32_t off = ((idx) << 2);
+#else
     uint32_t off = WORDS_OFFSETS[idx];
+#endif
     const unsigned char *p = WORDS_DATA + off;
     size_t i = 0;
     while (i + 1 < buflen) {
@@ -33,14 +37,19 @@ static inline const char *get_word_ptr_buf(uint32_t idx, char *buf, size_t bufle
 }
 static inline uint32_t get_word_weight(uint32_t idx)
 {
+#ifdef SINGLE_PY
+    return idx;
+#else
     return WORDS_WEIGHT[idx];
+#endif
 }
 static inline uint8_t get_word_char_count(uint32_t idx)
 {
 #ifdef SINGLE_PY
     return 1;
 #else
-    return WORD_CHAR_COUNT[idx];
+    if (idx != WORDS_COUNT)
+        return WORDS_OFFSETS[idx];
 #endif
 }
 
@@ -78,7 +87,19 @@ static inline void multi_mixed_dfs_walk(const char *full, int len, int pos, int 
     }
     if (depth >= 4)
         return;
+#ifdef SINGLE_PY
+    uint16_t __er0, __er1;
+    if ((node) == 0) {
+        __er0 = SINGLE_PY_ROOT_EDGE_START;
+        __er1 = SINGLE_PY_ROOT_EDGE_COUNT;
+    } else {
+        __er0 = (uint16_t)(SINGLE_PY_ROOT_EDGE_START + SINGLE_PY_ROOT_EDGE_COUNT);
+        __er1 = 0;
+    }
+#else
     auto er = NODE_EDGE_RANGE[node];
+#endif
+#ifndef SINGLE_PY
     // compute current worst accepted weight for pruning
     int current_worst = INT_MIN;
     if (*wrote >= max_out) {
@@ -89,14 +110,23 @@ static inline void multi_mixed_dfs_walk(const char *full, int len, int pos, int 
                 current_worst = w;
         }
     }
+#endif
     // next_has_full helps decide initial-first preference
     bool next_has_full =
         (pos + 1 < len) && ((size_t)(pos + 1) < __pinyin_match_at_global.size()) && !__pinyin_match_at_global[pos + 1].empty();
+#ifdef SINGLE_PY
+    for (uint32_t e = __er0; e < (uint32_t)(__er0 + __er1); e++) {
+        uint16_t tid = SINGLE_PY_EDGE_TOKEN(e);
+        const char *tk = PINYIN_TOKENS[tid];
+        int tlen = token_len[tid];
+        int child = SINGLE_PY_EDGE_CHILD(e);
+#else
     for (uint32_t e = er[0]; e < er[0] + er[1]; e++) {
         uint16_t tid = NODE_EDGES[e].token_id;
         const char *tk = PINYIN_TOKENS[tid];
         int tlen = token_len[tid];
         int child = NODE_EDGES[e].child_node;
+#endif
 
         // quick reject: if neither an initial nor a full match at this pos, skip
         char c = full[pos];
@@ -115,10 +145,11 @@ static inline void multi_mixed_dfs_walk(const char *full, int len, int pos, int 
         if (!init_match && !full_match)
             continue;
 
-        // subtree pruning: if this child's subtree max weight can't beat current worst, skip
+            // subtree pruning: if this child's subtree max weight can't beat current worst, skip
+#ifndef SINGLE_PY
         if (current_worst != INT_MIN && (size_t)child < WORDS_MAX_WEIGHT_SIZE && WORDS_MAX_WEIGHT[child] <= current_worst)
             continue;
-
+#endif
         // prefer trying initial-first when helpful (e.g., 'nhao' => 'n' + 'hao')
         if (init_match && next_has_full) {
             // initial first
