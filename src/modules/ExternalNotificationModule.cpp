@@ -355,6 +355,7 @@ void ExternalNotificationModule::stopNow()
 
     // Prevent the state machine from immediately re-triggering outputs after a manual stop.
     isNagging = false;
+    played = false;
     nagCycleCutoff = UINT32_MAX;
 
 #ifdef HAS_I2S
