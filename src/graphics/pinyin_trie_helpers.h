@@ -43,15 +43,6 @@ static inline uint32_t get_word_weight(uint32_t idx)
     return WORDS_WEIGHT[idx];
 #endif
 }
-static inline uint8_t get_word_char_count(uint32_t idx)
-{
-#ifdef SINGLE_PY
-    return 1;
-#else
-    if (idx != WORDS_COUNT)
-        return WORDS_OFFSETS[idx];
-#endif
-}
 
 // Precomputed match table used by multi_mixed_search DFS. Internal linkage per TU.
 static std::vector<std::vector<int>> __pinyin_match_at_global;
@@ -71,9 +62,6 @@ static inline void multi_mixed_dfs_walk(const char *full, int len, int pos, int 
         auto wr = NODE_WORD_RANGE[node];
         for (uint32_t j = 0; j < wr[1]; j++) {
             uint32_t idx = wr[0] + j;
-            // check character count equals depth
-            if (get_word_char_count(idx) != (uint8_t)depth)
-                continue;
             bool found = false;
             for (int k = 0; k < *wrote; k++)
                 if (out_word_idx[k] == idx) {
@@ -98,18 +86,6 @@ static inline void multi_mixed_dfs_walk(const char *full, int len, int pos, int 
     }
 #else
     auto er = NODE_EDGE_RANGE[node];
-#endif
-#ifndef SINGLE_PY
-    // compute current worst accepted weight for pruning
-    int current_worst = INT_MIN;
-    if (*wrote >= max_out) {
-        current_worst = INT_MAX;
-        for (int i = 0; i < *wrote; i++) {
-            int w = get_word_weight(out_word_idx[i]);
-            if (w < current_worst)
-                current_worst = w;
-        }
-    }
 #endif
     // next_has_full helps decide initial-first preference
     bool next_has_full =
@@ -144,12 +120,6 @@ static inline void multi_mixed_dfs_walk(const char *full, int len, int pos, int 
         }
         if (!init_match && !full_match)
             continue;
-
-            // subtree pruning: if this child's subtree max weight can't beat current worst, skip
-#ifndef SINGLE_PY
-        if (current_worst != INT_MIN && (size_t)child < WORDS_MAX_WEIGHT_SIZE && WORDS_MAX_WEIGHT[child] <= current_worst)
-            continue;
-#endif
         // prefer trying initial-first when helpful (e.g., 'nhao' => 'n' + 'hao')
         if (init_match && next_has_full) {
             // initial first
