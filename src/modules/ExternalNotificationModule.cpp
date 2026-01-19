@@ -493,20 +493,12 @@ ProcessMessage ExternalNotificationModule::handleReceived(const meshtastic_MeshP
             meshtastic_NodeInfoLite *sender = nodeDB->getMeshNode(mp.from);
             meshtastic_Channel ch = channels.getByIndex(mp.channel ? mp.channel : channels.getPrimaryIndex());
 
-            // If we receive a broadcast message,apply channel mute setting
-            // If we receive a direct message and the receipent is us,apply DM mute setting
-            // else we just handle it as not muted.
-            bool is_muted;
-            if (!isBroadcast(mp.to) && isToUs(&mp)) {
-                // if we're in DM mode,get mute info from DM's mute table.
-                is_muted = (sender->bitfield & NODEINFO_BITFIELD_IS_MUTED_MASK);
-            } else {
-                if (ch.settings.has_module_settings) {
-                    is_muted = ch.settings.module_settings.is_muted;
-                } else {
-                    is_muted = false;
-                }
-            }
+            // If we receive a broadcast message, apply channel mute setting
+            // If we receive a direct message and the receipent is us, apply DM mute setting
+            // Else we just handle it as not muted.
+            const bool directToUs = !isBroadcast(mp.to) && isToUs(&mp);
+            bool is_muted = directToUs ? (sender && ((sender->bitfield & NODEINFO_BITFIELD_IS_MUTED_MASK) != 0))
+                                       : (ch.settings.has_module_settings && ch.settings.module_settings.is_muted);
 
             if (moduleConfig.external_notification.alert_bell) {
                 if (containsBell) {
