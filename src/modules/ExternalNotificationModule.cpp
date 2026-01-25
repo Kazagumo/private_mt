@@ -480,7 +480,18 @@ ProcessMessage ExternalNotificationModule::handleReceived(const meshtastic_MeshP
         drv.setWaveform(2, 0);
         drv.go();
 #endif
-        if (!isFromUs(&mp)) {
+
+        meshtastic_NodeInfoLite *sender = nodeDB->getMeshNode(mp.from);
+        meshtastic_Channel ch = channels.getByIndex(mp.channel ? mp.channel : channels.getPrimaryIndex());
+
+        // If we receive a broadcast message, apply channel mute setting
+        // If we receive a direct message and the receipent is us, apply DM mute setting
+        // Else we just handle it as not muted.
+        const bool directToUs = !isBroadcast(mp.to) && isToUs(&mp);
+        bool is_muted = directToUs ? (sender && ((sender->bitfield & NODEINFO_BITFIELD_IS_MUTED_MASK) != 0))
+                                   : (ch.settings.has_module_settings && ch.settings.module_settings.is_muted);
+
+        if (!isFromUs(&mp) && !is_muted) {
             // Check if the message contains a bell character. Don't do this loop for every pin, just once.
             auto &p = mp.decoded;
             bool containsBell = false;
@@ -489,16 +500,6 @@ ProcessMessage ExternalNotificationModule::handleReceived(const meshtastic_MeshP
                     containsBell = true;
                 }
             }
-
-            meshtastic_NodeInfoLite *sender = nodeDB->getMeshNode(mp.from);
-            meshtastic_Channel ch = channels.getByIndex(mp.channel ? mp.channel : channels.getPrimaryIndex());
-
-            // If we receive a broadcast message, apply channel mute setting
-            // If we receive a direct message and the receipent is us, apply DM mute setting
-            // Else we just handle it as not muted.
-            const bool directToUs = !isBroadcast(mp.to) && isToUs(&mp);
-            bool is_muted = directToUs ? (sender && ((sender->bitfield & NODEINFO_BITFIELD_IS_MUTED_MASK) != 0))
-                                       : (ch.settings.has_module_settings && ch.settings.module_settings.is_muted);
 
             if (moduleConfig.external_notification.alert_bell) {
                 if (containsBell) {

@@ -530,7 +530,7 @@ void enableModemSleep()
 #else
     esp32_config.max_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
 #endif
-    esp32_config.min_freq_mhz = 80; // 10Mhz is minimum recommended
+    esp32_config.min_freq_mhz = 10; // 10Mhz is minimum recommended
 #ifdef CONFIG_FREERTOS_USE_TICKLESS_IDLE
     esp32_config.light_sleep_enable = true;
 #else
