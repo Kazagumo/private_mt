@@ -690,6 +690,9 @@ class NimbleBluetoothServerCallback : public NimBLEServerCallbacks
 #ifdef NIMBLE_TWO
         if (ble->isDeInit)
             return;
+#else
+        if (nimbleBluetooth && nimbleBluetooth->isDeInit)
+            return;
 #endif
 
         meshtastic::BluetoothStatus newStatus(meshtastic::BluetoothStatus::ConnectionState::DISCONNECTED);
