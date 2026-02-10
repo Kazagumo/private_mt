@@ -1291,9 +1291,11 @@ void menuHandler::positionBaseMenu()
             screen->runNow();
             break;
         case PositionAction::CompassCalibrate:
+#ifndef MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
             if (accelerometerThread) {
                 accelerometerThread->calibrate(30);
             }
+#endif
             break;
         case PositionAction::GPSSmartPosition:
             menuQueue = gps_smart_position_menu;
@@ -1311,11 +1313,15 @@ void menuHandler::positionBaseMenu()
     };
 
     BannerOverlayOptions bannerOptions;
+#ifndef MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
     if (accelerometerThread) {
         bannerOptions = createStaticBannerOptions("GPS Action", calibrateOptions, calibrateLabels, onSelection);
     } else {
         bannerOptions = createStaticBannerOptions("GPS Action", baseOptions, baseLabels, onSelection);
     }
+#else
+    bannerOptions = createStaticBannerOptions("GPS Action", baseOptions, baseLabels, onSelection);
+#endif
 
     screen->showOverlayBanner(bannerOptions);
 }
